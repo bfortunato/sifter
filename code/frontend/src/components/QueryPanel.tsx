@@ -1,0 +1,80 @@
+import { useState } from "react";
+import { Play } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useQueryExtraction } from "@/hooks/useExtractions";
+
+interface QueryPanelProps {
+  extractionId: string;
+}
+
+function ResultsTable({ results }: { results: Record<string, unknown>[] }) {
+  if (!results.length) return <p className="text-muted-foreground text-sm">No results returned.</p>;
+  const cols = Object.keys(results[0]);
+  return (
+    <div className="overflow-x-auto rounded-md border mt-4">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b bg-muted/50">
+            {cols.map((c) => (
+              <th key={c} className="px-4 py-2 text-left font-medium text-muted-foreground">{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((row, i) => (
+            <tr key={i} className="border-b last:border-0 hover:bg-muted/30">
+              {cols.map((c) => (
+                <td key={c} className="px-4 py-2">{formatValue(row[c])}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
+export function QueryPanel({ extractionId }: QueryPanelProps) {
+  const [query, setQuery] = useState("");
+  const { mutate, data, isPending, error } = useQueryExtraction();
+
+  const runQuery = () => {
+    if (!query.trim()) return;
+    mutate({ id: extractionId, query });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <Textarea
+          placeholder="Ask a question about your data... e.g. 'Total amount by client' or 'Show top 10 invoices by value'"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="resize-none"
+          rows={3}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) runQuery();
+          }}
+        />
+      </div>
+      <Button onClick={runQuery} disabled={isPending || !query.trim()}>
+        <Play className="h-4 w-4 mr-2" />
+        {isPending ? "Running..." : "Run Query"}
+      </Button>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{(error as Error).message}</AlertDescription>
+        </Alert>
+      )}
+      {data && <ResultsTable results={data.results} />}
+    </div>
+  );
+}

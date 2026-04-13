@@ -1,6 +1,6 @@
 """
-Q&A Agent: schema-aware conversational assistant for extraction data.
-Used by both /api/chat and /api/extractions/{id}/chat.
+Q&A Agent: schema-aware conversational assistant for sift data.
+Used by both /api/chat and /api/sifts/{id}/chat.
 """
 import json
 import re
@@ -61,12 +61,12 @@ async def chat(
             extraction_id = None  # can't query a nonexistent extraction
     else:
         # Global chat — list available extractions for context
-        extractions = await extraction_svc.list_all(org_id=org_id)
-        if extractions:
-            names = ", ".join(f'"{e.name}" (id: {e.id})' for e in extractions[:5])
-            global_context = f"\n## Available Extractions\n{names}\n"
+        sifts = await extraction_svc.list_all(org_id=org_id)
+        if sifts:
+            names = ", ".join(f'"{e.name}" (id: {e.id})' for e in sifts[:5])
+            global_context = f"\n## Available Sifts\n{names}\n"
         else:
-            global_context = "\n## Available Extractions\nNo extractions found.\n"
+            global_context = "\n## Available Sifts\nNo sifts found.\n"
         system = _FALLBACK_PROMPT + global_context
 
     # Build messages

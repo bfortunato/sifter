@@ -12,7 +12,7 @@ class SifterConfig(BaseSettings):
     llm_api_key: str = ""
     pipeline_model: str = "openai/gpt-4o-mini"
 
-    # Extraction defaults
+    # Sift defaults
     extraction_temperature: float = 0.2
     max_concurrent_extractions: int = 5
 

@@ -4,6 +4,7 @@ Runs against a real MongoDB test database (sifter_test).
 Requires MongoDB running at localhost:27017.
 """
 
+import asyncio
 import os
 import pytest
 import pytest_asyncio
@@ -18,6 +19,18 @@ os.environ.setdefault("SIFTER_LLM_API_KEY", "test-key")
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 from sifter.main import app
+from sifter.auth import Principal, get_current_principal
+
+TEST_ORG_ID = "test-org"
+TEST_USER_ID = "test-user"
+
+
+async def _mock_principal() -> Principal:
+    return Principal(user_id=TEST_USER_ID, org_id=TEST_ORG_ID, via="jwt")
+
+
+# Override auth for all tests
+app.dependency_overrides[get_current_principal] = _mock_principal
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -142,13 +155,13 @@ async def test_get_records_empty(client):
     assert r2.json() == []
 
 
-async def _insert_records(extraction_id, records):
+async def _insert_records(extraction_id, records, org_id=TEST_ORG_ID):
     from sifter.db import get_db
     from sifter.services.extraction_results import ExtractionResultsService
     svc = ExtractionResultsService(get_db())
     await svc.ensure_indexes()
     for doc_id, doc_type, conf, data in records:
-        await svc.insert_result(extraction_id, doc_id, doc_type, conf, data)
+        await svc.insert_result(extraction_id, doc_id, doc_type, conf, data, org_id=org_id)
 
 
 async def test_get_records_with_data(client):
@@ -243,8 +256,10 @@ async def test_create_and_list_aggregation(client):
             "extraction_id": eid,
             "aggregation_query": "count all documents",
         })
+        # Let the background task run while mock is still active
+        await asyncio.sleep(0.1)
 
-    assert r2.status_code == 200
+    assert r2.status_code == 202
     agg = r2.json()
     assert agg["name"] == "Count All"
     assert agg["extraction_id"] == eid
@@ -279,6 +294,8 @@ async def test_aggregation_execute(client):
             "extraction_id": eid,
             "aggregation_query": "total by client",
         })
+        # Let the background pipeline generation task run while mock is still active
+        await asyncio.sleep(0.1)
 
     agg_id = r2.json()["id"]
 

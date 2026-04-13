@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { ChevronDown, ChevronRight, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -46,6 +46,26 @@ function DataTable({ data }: { data: Record<string, unknown>[] }) {
   );
 }
 
+function PipelineToggle({ pipeline }: { pipeline: Record<string, unknown>[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 text-xs opacity-70 hover:opacity-100 transition-opacity"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        View pipeline
+      </button>
+      {open && (
+        <pre className="mt-1 text-xs bg-black/10 dark:bg-white/10 p-2 rounded overflow-x-auto">
+          {JSON.stringify(pipeline, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   return (
@@ -60,6 +80,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         <p className="text-sm whitespace-pre-wrap">{message.content}</p>
         {!isUser && message.data && message.data.length > 0 && (
           <DataTable data={message.data as Record<string, unknown>[]} />
+        )}
+        {!isUser && message.pipeline && message.pipeline.length > 0 && (
+          <PipelineToggle pipeline={message.pipeline as Record<string, unknown>[]} />
         )}
       </div>
     </div>

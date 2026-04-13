@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play } from "lucide-react";
+import { ChevronDown, ChevronRight, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -42,6 +42,26 @@ function formatValue(v: unknown): string {
   return String(v);
 }
 
+function PipelineToggle({ pipeline }: { pipeline: Record<string, unknown>[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-3">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        View pipeline
+      </button>
+      {open && (
+        <pre className="mt-2 text-xs bg-muted p-3 rounded-md overflow-x-auto">
+          {JSON.stringify(pipeline, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 export function QueryPanel({ extractionId }: QueryPanelProps) {
   const [query, setQuery] = useState("");
   const { mutate, data, isPending, error } = useQueryExtraction();
@@ -74,7 +94,14 @@ export function QueryPanel({ extractionId }: QueryPanelProps) {
           <AlertDescription>{(error as Error).message}</AlertDescription>
         </Alert>
       )}
-      {data && <ResultsTable results={data.results} />}
+      {data && (
+        <>
+          <ResultsTable results={data.results} />
+          {data.pipeline && data.pipeline.length > 0 && (
+            <PipelineToggle pipeline={data.pipeline} />
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ from bson import ObjectId
 
 class ExtractionResult(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
+    organization_id: Optional[str] = None
     extraction_id: str
     document_id: str
     document_type: str = "unknown"

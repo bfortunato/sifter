@@ -1,27 +1,19 @@
-import json
-import re
-from pathlib import Path
 from typing import Optional
 
-import litellm
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ..config import config
+from ..auth import Principal, get_current_principal
 from ..db import get_db
-from ..services.aggregation_service import AggregationService
-from ..services.extraction_service import ExtractionService
+from ..services.qa_agent import chat as qa_chat
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
-_PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "chat_agent.md"
-_SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
-
 
 class ChatMessage(BaseModel):
-    role: str  # "user" | "assistant"
+    role: str
     content: str
 
 
@@ -35,73 +27,30 @@ class ChatResponse(BaseModel):
     response: str
     data: Optional[list[dict]] = None
     query: Optional[str] = None
+    pipeline: Optional[list] = None
 
 
 @router.post("", response_model=ChatResponse)
-async def chat(body: ChatRequest):
-    db = get_db()
-    extraction_svc = ExtractionService(db)
-    agg_svc = AggregationService(db)
-
-    # Build context about available extractions
-    extraction_context = ""
-    if body.extraction_id:
-        extraction = await extraction_svc.get(body.extraction_id)
-        if extraction:
-            extraction_context = (
-                f"\n## Current Extraction\n"
-                f"Name: {extraction.name}\n"
-                f"Instructions: {extraction.extraction_instructions}\n"
-                f"Schema: {extraction.extraction_schema or 'not yet inferred'}\n"
-                f"Documents processed: {extraction.processed_documents}\n"
-            )
-    else:
-        extractions = await extraction_svc.list_all()
-        if extractions:
-            names = ", ".join(f'"{e.name}" (id: {e.id})' for e in extractions[:5])
-            extraction_context = f"\n## Available Extractions\n{names}\n"
-
-    system = _SYSTEM_PROMPT + extraction_context
-
-    # Build message history
-    messages = [{"role": "system", "content": system}]
-    for msg in body.history[-10:]:  # keep last 10 messages for context
-        messages.append({"role": msg.role, "content": msg.content})
-    messages.append({"role": "user", "content": body.message})
-
-    response = await litellm.acompletion(
-        model=config.pipeline_model,
-        messages=messages,
-        temperature=0.3,
-        api_key=config.llm_api_key or None,
-    )
-
-    raw = response.choices[0].message.content
-
-    # Try to parse structured response
+async def chat(
+    body: ChatRequest,
+    principal: Principal = Depends(get_current_principal),
+    db=Depends(get_db),
+):
+    history_dicts = [{"role": m.role, "content": m.content} for m in body.history]
     try:
-        cleaned = _strip_markdown_fences(raw)
-        data = json.loads(cleaned)
-        response_text = data.get("response", raw)
-        result_data = data.get("data")
-        query_used = data.get("query")
+        result = await qa_chat(
+            extraction_id=body.extraction_id,
+            message=body.message,
+            history=history_dicts,
+            org_id=principal.org_id,
+            db=db,
+        )
+    except Exception as e:
+        logger.error("chat_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
-        # If the agent returned a query, actually execute it
-        if query_used and body.extraction_id:
-            try:
-                results, _ = await agg_svc.live_query(body.extraction_id, query_used)
-                result_data = results
-            except Exception as e:
-                logger.warning("chat_query_execution_failed", error=str(e))
-
-        return ChatResponse(response=response_text, data=result_data, query=query_used)
-    except (json.JSONDecodeError, AttributeError):
-        # Plain text response
-        return ChatResponse(response=raw)
-
-
-def _strip_markdown_fences(text: str) -> str:
-    text = text.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    return text.strip()
+    return ChatResponse(
+        response=result.response,
+        data=result.data,
+        pipeline=result.pipeline,
+    )

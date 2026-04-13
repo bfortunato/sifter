@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  chatWithExtraction,
   createExtraction,
   deleteExtraction,
   exportExtractionCsv,
@@ -11,7 +12,14 @@ import {
   resetExtraction,
   uploadDocuments,
 } from "@/api/extractions";
-import type { CreateExtractionPayload } from "@/api/types";
+import {
+  createAggregation,
+  deleteAggregation,
+  fetchAggregationResult,
+  fetchAggregations,
+  regenerateAggregation,
+} from "@/api/aggregations";
+import type { ChatMessage, CreateAggregationPayload, CreateExtractionPayload } from "@/api/types";
 
 export const useExtractions = () =>
   useQuery({ queryKey: ["extractions"], queryFn: fetchExtractions });
@@ -84,3 +92,49 @@ export const useExportCsv = () =>
   useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => exportExtractionCsv(id, name),
   });
+
+export const useExtractionChat = (extractionId: string) =>
+  useMutation({
+    mutationFn: ({ message, history }: { message: string; history: ChatMessage[] }) =>
+      chatWithExtraction(extractionId, message, history),
+  });
+
+export const useAggregations = (extractionId: string, options?: { refetchInterval?: number | false }) =>
+  useQuery({
+    queryKey: ["aggregations", extractionId],
+    queryFn: () => fetchAggregations(extractionId),
+    refetchInterval: options?.refetchInterval,
+    enabled: !!extractionId,
+  });
+
+export const useCreateAggregation = (extractionId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateAggregationPayload) => createAggregation(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", extractionId] }),
+  });
+};
+
+export const useRunAggregation = (extractionId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (aggId: string) => fetchAggregationResult(aggId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", extractionId] }),
+  });
+};
+
+export const useRegenerateAggregation = (extractionId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (aggId: string) => regenerateAggregation(aggId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", extractionId] }),
+  });
+};
+
+export const useDeleteAggregation = (extractionId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (aggId: string) => deleteAggregation(aggId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", extractionId] }),
+  });
+};

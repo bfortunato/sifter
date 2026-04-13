@@ -14,6 +14,7 @@ class ExtractionStatus(str, Enum):
 
 class Extraction(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
+    organization_id: Optional[str] = None
     name: str
     description: str = ""
     extraction_instructions: str

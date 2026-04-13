@@ -1,25 +1,29 @@
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 from bson import ObjectId
 
 
 class AggregationStatus(str, Enum):
-    ACTIVE = "active"
     GENERATING = "generating"
+    READY = "ready"
     ERROR = "error"
+    # Keep "active" as alias for backward compat
+    ACTIVE = "active"
 
 
 class Aggregation(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
+    organization_id: Optional[str] = None
     name: str
     description: str = ""
     extraction_id: str
     aggregation_query: str
-    aggregation_pipeline: Optional[str] = None
+    pipeline: Optional[list[Any]] = None
     aggregation_error: Optional[str] = None
     status: AggregationStatus = AggregationStatus.GENERATING
+    last_run_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -38,4 +42,7 @@ class Aggregation(BaseModel):
         doc = dict(doc)
         if "_id" in doc:
             doc["_id"] = str(doc["_id"])
+        # Migrate old "active" status to "ready"
+        if doc.get("status") == "active":
+            doc["status"] = "ready"
         return cls(**doc)

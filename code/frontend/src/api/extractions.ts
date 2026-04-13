@@ -1,52 +1,44 @@
+import { apiFetch, apiFetchJson } from "../lib/apiFetch";
 import type {
+  ChatResponse,
+  CreateExtractionPayload,
   Extraction,
   ExtractionRecord,
   QueryResult,
-  CreateExtractionPayload,
 } from "./types";
 
 const BASE = "/api/extractions";
 
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(text || `HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
-
 export const fetchExtractions = (): Promise<Extraction[]> =>
-  fetch(BASE).then((r) => handleResponse<Extraction[]>(r));
+  apiFetchJson<Extraction[]>(BASE);
 
 export const fetchExtraction = (id: string): Promise<Extraction> =>
-  fetch(`${BASE}/${id}`).then((r) => handleResponse<Extraction>(r));
+  apiFetchJson<Extraction>(`${BASE}/${id}`);
 
 export const createExtraction = (payload: CreateExtractionPayload): Promise<Extraction> =>
-  fetch(BASE, {
+  apiFetchJson<Extraction>(BASE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  }).then((r) => handleResponse<Extraction>(r));
+  });
 
 export const deleteExtraction = (id: string): Promise<void> =>
-  fetch(`${BASE}/${id}`, { method: "DELETE" }).then((r) => handleResponse<void>(r));
+  apiFetchJson<void>(`${BASE}/${id}`, { method: "DELETE" });
 
 export const uploadDocuments = (id: string, formData: FormData): Promise<unknown> =>
-  fetch(`${BASE}/${id}/upload`, { method: "POST", body: formData }).then((r) =>
-    handleResponse<unknown>(r)
-  );
+  apiFetchJson<unknown>(`${BASE}/${id}/upload`, { method: "POST", body: formData });
 
 export const reindexExtraction = (id: string): Promise<unknown> =>
-  fetch(`${BASE}/${id}/reindex`, { method: "POST" }).then((r) => handleResponse<unknown>(r));
+  apiFetchJson<unknown>(`${BASE}/${id}/reindex`, { method: "POST" });
 
 export const resetExtraction = (id: string): Promise<Extraction> =>
-  fetch(`${BASE}/${id}/reset`, { method: "POST" }).then((r) => handleResponse<Extraction>(r));
+  apiFetchJson<Extraction>(`${BASE}/${id}/reset`, { method: "POST" });
 
 export const fetchExtractionRecords = (id: string): Promise<ExtractionRecord[]> =>
-  fetch(`${BASE}/${id}/records`).then((r) => handleResponse<ExtractionRecord[]>(r));
+  apiFetchJson<ExtractionRecord[]>(`${BASE}/${id}/records`);
 
 export const exportExtractionCsv = async (id: string, name: string): Promise<void> => {
-  const res = await fetch(`${BASE}/${id}/records/csv`);
+  const res = await apiFetch(`${BASE}/${id}/records/csv`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -58,8 +50,19 @@ export const exportExtractionCsv = async (id: string, name: string): Promise<voi
 };
 
 export const queryExtraction = (id: string, query: string): Promise<QueryResult> =>
-  fetch(`${BASE}/${id}/query`, {
+  apiFetchJson<QueryResult>(`${BASE}/${id}/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query }),
-  }).then((r) => handleResponse<QueryResult>(r));
+  });
+
+export const chatWithExtraction = (
+  id: string,
+  message: string,
+  history: Array<{ role: string; content: string }>
+): Promise<ChatResponse> =>
+  apiFetchJson<ChatResponse>(`${BASE}/${id}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, history }),
+  });

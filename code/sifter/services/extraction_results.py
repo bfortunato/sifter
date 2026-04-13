@@ -2,7 +2,7 @@ import csv
 import io
 import json
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 import structlog
 from bson import ObjectId
@@ -27,6 +27,7 @@ class ExtractionResultsService:
             name="extraction_document_unique",
         )
         await self.col.create_index("extraction_id", name="extraction_id_idx")
+        await self.col.create_index("organization_id", name="organization_id_idx")
 
     async def insert_result(
         self,
@@ -35,8 +36,10 @@ class ExtractionResultsService:
         document_type: str,
         confidence: float,
         extracted_data: dict[str, Any],
+        org_id: Optional[str] = None,
     ) -> ExtractionResult:
         result = ExtractionResult(
+            organization_id=org_id,
             extraction_id=extraction_id,
             document_id=document_id,
             document_type=document_type,
@@ -53,8 +56,11 @@ class ExtractionResultsService:
         logger.info("result_inserted", extraction_id=extraction_id, document_id=document_id)
         return result
 
-    async def get_results(self, extraction_id: str) -> list[ExtractionResult]:
-        cursor = self.col.find({"extraction_id": extraction_id})
+    async def get_results(self, extraction_id: str, org_id: Optional[str] = None) -> list[ExtractionResult]:
+        query: dict = {"extraction_id": extraction_id}
+        if org_id:
+            query["organization_id"] = org_id
+        cursor = self.col.find(query)
         docs = await cursor.to_list(length=None)
         return [ExtractionResult.from_mongo(d) for d in docs]
 
@@ -71,15 +77,24 @@ class ExtractionResultsService:
         return await self.col.count_documents({"extraction_id": extraction_id})
 
     async def execute_aggregation(
-        self, extraction_id: str, pipeline_json: str
+        self, extraction_id: str, pipeline_input: Any, org_id: Optional[str] = None
     ) -> list[dict[str, Any]]:
         """
         Execute a MongoDB aggregation pipeline against extraction results.
-        Automatically injects extraction_id match as the first stage.
+        Automatically injects extraction_id (and org_id if provided) match as the first stage.
+        pipeline_input can be a JSON string or a list.
         """
-        pipeline: list[dict] = json.loads(pipeline_json)
+        if isinstance(pipeline_input, str):
+            pipeline: list[dict] = json.loads(pipeline_input)
+        else:
+            pipeline = list(pipeline_input)
 
-        # Inject extraction_id filter as first stage if not present
+        # Build match filter
+        match_filter: dict = {"extraction_id": extraction_id}
+        if org_id:
+            match_filter["organization_id"] = org_id
+
+        # Inject filter as first stage if not already present
         has_extraction_match = False
         if pipeline and isinstance(pipeline[0], dict):
             match = pipeline[0].get("$match", {})
@@ -87,7 +102,7 @@ class ExtractionResultsService:
                 has_extraction_match = True
 
         if not has_extraction_match:
-            pipeline.insert(0, {"$match": {"extraction_id": extraction_id}})
+            pipeline.insert(0, {"$match": match_filter})
 
         logger.info(
             "aggregation_execute",
@@ -98,15 +113,13 @@ class ExtractionResultsService:
         cursor = self.col.aggregate(pipeline)
         results = await cursor.to_list(length=None)
 
-        # Convert ObjectId values to strings for JSON serialization
         return [_serialize_doc(r) for r in results]
 
-    async def export_csv(self, extraction_id: str) -> str:
-        results = await self.get_results(extraction_id)
+    async def export_csv(self, extraction_id: str, org_id: Optional[str] = None) -> str:
+        results = await self.get_results(extraction_id, org_id=org_id)
         if not results:
             return ""
 
-        # Collect all field names across all results
         all_fields: list[str] = []
         seen = set()
         for result in results:
@@ -135,9 +148,12 @@ class ExtractionResultsService:
         return output.getvalue()
 
     async def get_sample_records(
-        self, extraction_id: str, limit: int = 10
+        self, extraction_id: str, limit: int = 10, org_id: Optional[str] = None
     ) -> list[dict[str, Any]]:
-        cursor = self.col.find({"extraction_id": extraction_id}).limit(limit)
+        query: dict = {"extraction_id": extraction_id}
+        if org_id:
+            query["organization_id"] = org_id
+        cursor = self.col.find(query).limit(limit)
         docs = await cursor.to_list(length=limit)
         return [_serialize_doc(d) for d in docs]
 

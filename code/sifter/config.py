@@ -16,9 +16,18 @@ class SifterConfig(BaseSettings):
     extraction_temperature: float = 0.2
     max_concurrent_extractions: int = 5
 
+    # Auth
+    jwt_secret: str = "dev-secret-change-in-production"
+    jwt_expire_minutes: int = 1440  # 24 hours
+
     # File storage
     upload_dir: str = "./uploads"
+    storage_path: str = "./uploads"
+    storage_backend: str = "filesystem"
     max_file_size_mb: int = 50
+
+    # Background workers
+    max_workers: int = 4
 
     # Server
     host: str = "0.0.0.0"

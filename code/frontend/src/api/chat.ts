@@ -1,3 +1,4 @@
+import { apiFetchJson } from "../lib/apiFetch";
 import type { ChatMessage, ChatResponse } from "./types";
 
 export const sendChatMessage = (
@@ -5,7 +6,7 @@ export const sendChatMessage = (
   extractionId?: string,
   history: ChatMessage[] = []
 ): Promise<ChatResponse> =>
-  fetch("/api/chat", {
+  apiFetchJson<ChatResponse>("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -13,10 +14,4 @@ export const sendChatMessage = (
       extraction_id: extractionId,
       history: history.map(({ role, content }) => ({ role, content })),
     }),
-  }).then(async (r) => {
-    if (!r.ok) {
-      const text = await r.text().catch(() => r.statusText);
-      throw new Error(text || `HTTP ${r.status}`);
-    }
-    return r.json() as Promise<ChatResponse>;
   });

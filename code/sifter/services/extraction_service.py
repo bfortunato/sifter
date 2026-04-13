@@ -27,6 +27,7 @@ class ExtractionService:
 
     async def ensure_indexes(self):
         await self.col.create_index("created_at", name="created_at_idx")
+        await self.col.create_index("organization_id", name="organization_id_idx")
         await self.results_service.ensure_indexes()
 
     async def create(
@@ -35,8 +36,10 @@ class ExtractionService:
         description: str,
         instructions: str,
         schema: Optional[str] = None,
+        org_id: Optional[str] = None,
     ) -> Extraction:
         extraction = Extraction(
+            organization_id=org_id,
             name=name,
             description=description,
             extraction_instructions=instructions,
@@ -49,18 +52,27 @@ class ExtractionService:
         logger.info("extraction_created", extraction_id=extraction.id, name=name)
         return extraction
 
-    async def get(self, extraction_id: str) -> Optional[Extraction]:
-        doc = await self.col.find_one({"_id": ObjectId(extraction_id)})
+    async def get(self, extraction_id: str, org_id: Optional[str] = None) -> Optional[Extraction]:
+        query: dict = {"_id": ObjectId(extraction_id)}
+        if org_id:
+            query["organization_id"] = org_id
+        doc = await self.col.find_one(query)
         return Extraction.from_mongo(doc) if doc else None
 
-    async def list_all(self) -> list[Extraction]:
-        cursor = self.col.find().sort("created_at", -1)
+    async def list_all(self, org_id: Optional[str] = None) -> list[Extraction]:
+        query: dict = {}
+        if org_id:
+            query["organization_id"] = org_id
+        cursor = self.col.find(query).sort("created_at", -1)
         docs = await cursor.to_list(length=None)
         return [Extraction.from_mongo(d) for d in docs]
 
-    async def delete(self, extraction_id: str) -> bool:
+    async def delete(self, extraction_id: str, org_id: Optional[str] = None) -> bool:
+        query: dict = {"_id": ObjectId(extraction_id)}
+        if org_id:
+            query["organization_id"] = org_id
         await self.results_service.delete_by_extraction_id(extraction_id)
-        result = await self.col.delete_one({"_id": ObjectId(extraction_id)})
+        result = await self.col.delete_one(query)
         return result.deleted_count > 0
 
     async def update(self, extraction_id: str, updates: dict) -> Optional[Extraction]:
@@ -120,6 +132,7 @@ class ExtractionService:
                     document_type=result.document_type,
                     confidence=result.confidence,
                     extracted_data=result.extracted_data,
+                    org_id=extraction.organization_id,
                 )
 
                 # Infer schema from first successful result
@@ -186,6 +199,7 @@ class ExtractionService:
             document_type=result.document_type,
             confidence=result.confidence,
             extracted_data=result.extracted_data,
+            org_id=extraction.organization_id,
         )
 
         if not extraction.extraction_schema and result.extracted_data:
@@ -212,8 +226,8 @@ class ExtractionService:
         )
         await self.process_documents(extraction_id, file_paths)
 
-    async def get_records(self, extraction_id: str) -> list[dict[str, Any]]:
-        results = await self.results_service.get_results(extraction_id)
+    async def get_records(self, extraction_id: str, org_id: Optional[str] = None) -> list[dict[str, Any]]:
+        results = await self.results_service.get_results(extraction_id, org_id=org_id)
         return [
             {
                 "id": r.id,

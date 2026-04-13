@@ -19,6 +19,7 @@ export function useChat(extractionId?: string) {
         role: "assistant",
         content: response.response,
         data: response.data,
+        pipeline: response.pipeline,
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (e) {

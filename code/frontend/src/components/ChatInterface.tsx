@@ -7,7 +7,7 @@ import { useChat } from "@/hooks/useChat";
 import type { ChatMessage } from "@/api/types";
 
 interface ChatInterfaceProps {
-  extractionId?: string;
+  siftId?: string;
 }
 
 function DataTable({ data }: { data: Record<string, unknown>[] }) {
@@ -89,9 +89,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-export function ChatInterface({ extractionId }: ChatInterfaceProps) {
+export function ChatInterface({ siftId }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  const { messages, isLoading, sendMessage } = useChat(extractionId);
+  const { messages, isLoading, sendMessage } = useChat(siftId);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

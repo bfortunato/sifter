@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQueryExtraction } from "@/hooks/useExtractions";
 
 interface QueryPanelProps {
-  extractionId: string;
+  siftId: string;
 }
 
 function ResultsTable({ results }: { results: Record<string, unknown>[] }) {
@@ -62,13 +62,13 @@ function PipelineToggle({ pipeline }: { pipeline: Record<string, unknown>[] }) {
   );
 }
 
-export function QueryPanel({ extractionId }: QueryPanelProps) {
+export function QueryPanel({ siftId }: QueryPanelProps) {
   const [query, setQuery] = useState("");
   const { mutate, data, isPending, error } = useQueryExtraction();
 
   const runQuery = () => {
     if (!query.trim()) return;
-    mutate({ id: extractionId, query });
+    mutate({ id: siftId, query });
   };
 
   return (

@@ -5,8 +5,8 @@ import { ChatInterface } from "@/components/ChatInterface";
 import { useSifts } from "@/hooks/useExtractions";
 
 export function ChatPage() {
-  const [selectedExtractionId, setSelectedExtractionId] = useState<string | undefined>();
-  const { data: extractions } = useSifts();
+  const [selectedSiftId, setSelectedSiftId] = useState<string | undefined>();
+  const { data: sifts } = useSifts();
 
   return (
     <div className="container py-8 max-w-3xl">
@@ -18,18 +18,18 @@ export function ChatPage() {
         </div>
       </div>
 
-      {extractions && extractions.length > 0 && (
+      {sifts && sifts.length > 0 && (
         <div className="mb-4">
           <label className="text-sm font-medium text-muted-foreground block mb-1">
-            Extraction (optional — auto-detected if not set)
+            Sift (optional — auto-detected if not set)
           </label>
           <select
             className="flex h-10 w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            value={selectedExtractionId ?? ""}
-            onChange={(e) => setSelectedExtractionId(e.target.value || undefined)}
+            value={selectedSiftId ?? ""}
+            onChange={(e) => setSelectedSiftId(e.target.value || undefined)}
           >
             <option value="">Auto-detect</option>
-            {extractions.map((e) => (
+            {sifts.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.name}
               </option>
@@ -40,7 +40,7 @@ export function ChatPage() {
 
       <Card>
         <CardContent className="p-0">
-          <ChatInterface extractionId={selectedExtractionId} />
+          <ChatInterface siftId={selectedSiftId} />
         </CardContent>
       </Card>
     </div>

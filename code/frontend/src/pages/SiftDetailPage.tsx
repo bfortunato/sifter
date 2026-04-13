@@ -87,15 +87,15 @@ function AggregationResultTable({ result }: { result: AggregationResult }) {
 
 function AggregationCard({
   agg,
-  extractionId,
+  siftId,
 }: {
   agg: Aggregation;
-  extractionId: string;
+  siftId: string;
 }) {
   const [result, setResult] = useState<AggregationResult | null>(null);
-  const runMutation = useRunAggregation(extractionId);
-  const regenerateMutation = useRegenerateAggregation(extractionId);
-  const deleteMutation = useDeleteAggregation(extractionId);
+  const runMutation = useRunAggregation(siftId);
+  const regenerateMutation = useRegenerateAggregation(siftId);
+  const deleteMutation = useDeleteAggregation(siftId);
 
   const handleRun = () => {
     runMutation.mutate(agg.id, {
@@ -164,24 +164,24 @@ function AggregationCard({
   );
 }
 
-function AggregationsPanel({ extractionId }: { extractionId: string }) {
+function AggregationsPanel({ siftId }: { siftId: string }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newQuery, setNewQuery] = useState("");
 
-  const { data: aggregations = [] } = useAggregations(extractionId, {
+  const { data: aggregations = [] } = useAggregations(siftId, {
     refetchInterval: (query: any) => {
       const hasGenerating = (query.state.data as Aggregation[] | undefined)?.some((a: Aggregation) => a.status === "generating");
       return hasGenerating ? 2000 : false;
     },
   });
 
-  const createMutation = useCreateAggregation(extractionId);
+  const createMutation = useCreateAggregation(siftId);
 
   const handleCreate = () => {
     if (!newName.trim() || !newQuery.trim()) return;
     createMutation.mutate(
-      { name: newName, description: "", extraction_id: extractionId, aggregation_query: newQuery },
+      { name: newName, description: "", extraction_id: siftId, aggregation_query: newQuery },
       {
         onSuccess: () => {
           setShowCreate(false);
@@ -213,7 +213,7 @@ function AggregationsPanel({ extractionId }: { extractionId: string }) {
       ) : (
         <div className="space-y-3">
           {aggregations.map((agg) => (
-            <AggregationCard key={agg.id} agg={agg} extractionId={extractionId} />
+            <AggregationCard key={agg.id} agg={agg} siftId={siftId} />
           ))}
         </div>
       )}
@@ -256,7 +256,7 @@ function AggregationsPanel({ extractionId }: { extractionId: string }) {
   );
 }
 
-export function ExtractionDetailPage() {
+export function SiftDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -471,16 +471,16 @@ export function ExtractionDetailPage() {
           <RecordsTable records={records ?? []} isLoading={recordsLoading} />
         </TabsContent>
         <TabsContent value="query" className="mt-4 space-y-8">
-          <AggregationsPanel extractionId={id!} />
+          <AggregationsPanel siftId={id!} />
           <div>
             <h3 className="font-medium text-sm mb-4">Ad-hoc Query</h3>
-            <QueryPanel extractionId={id!} />
+            <QueryPanel siftId={id!} />
           </div>
         </TabsContent>
         <TabsContent value="chat" className="mt-4">
           <Card>
             <CardContent className="p-0">
-              <ChatInterface extractionId={id!} />
+              <ChatInterface siftId={id!} />
             </CardContent>
           </Card>
         </TabsContent>

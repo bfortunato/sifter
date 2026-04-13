@@ -15,12 +15,12 @@ import {
 import { useCreateSift } from "@/hooks/useExtractions";
 import type { CreateSiftPayload } from "@/api/types";
 
-interface ExtractionFormProps {
+interface SiftFormProps {
   trigger: React.ReactNode;
   onCreated?: (id: string) => void;
 }
 
-export function ExtractionForm({ trigger, onCreated }: ExtractionFormProps) {
+export function SiftForm({ trigger, onCreated }: SiftFormProps) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CreateSiftPayload>({
     name: "",

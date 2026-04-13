@@ -85,7 +85,7 @@ export default function FolderDetailPage() {
     },
   });
 
-  const { data: allExtractions = [] } = useQuery({
+  const { data: allSifts = [] } = useQuery({
     queryKey: ["sifts"],
     queryFn: fetchSifts,
   });
@@ -132,7 +132,7 @@ export default function FolderDetailPage() {
   };
 
   const linkedExtractorIds = folder?.extractors?.map((e) => e.extraction_id) ?? [];
-  const availableToLink = allExtractions.filter(
+  const availableToLink = allSifts.filter(
     (e) => !linkedExtractorIds.includes(e.id)
   );
 
@@ -217,7 +217,7 @@ export default function FolderDetailPage() {
         ) : (
           <div className="space-y-2">
             {folder.extractors?.map((link) => {
-              const ext = allExtractions.find((e) => e.id === link.extraction_id);
+              const ext = allSifts.find((e) => e.id === link.extraction_id);
               return (
                 <div
                   key={link.id}
@@ -295,7 +295,7 @@ export default function FolderDetailPage() {
                 </div>
                 <div className="flex items-center gap-2 ml-4">
                   {doc.extraction_statuses?.map((s: DocumentExtractionStatus) => {
-                    const ext = allExtractions.find((e) => e.id === s.extraction_id);
+                    const ext = allSifts.find((e) => e.id === s.extraction_id);
                     return (
                       <div key={s.extraction_id} className="flex items-center gap-1">
                         <span className="text-xs text-muted-foreground">

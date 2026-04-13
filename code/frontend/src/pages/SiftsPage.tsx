@@ -1,15 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import { Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ExtractionForm } from "@/components/ExtractionForm";
+import { SiftForm } from "@/components/SiftForm";
 import { useSifts } from "@/hooks/useExtractions";
 
-export function ExtractionsPage() {
+export function SiftsPage() {
   const navigate = useNavigate();
-  const { data: extractions, isLoading, error } = useSifts();
+  const { data: sifts, isLoading, error } = useSifts();
 
   return (
     <div className="container py-8 max-w-5xl">
@@ -20,14 +20,14 @@ export function ExtractionsPage() {
             Process documents and query structured data with AI
           </p>
         </div>
-        <ExtractionForm
+        <SiftForm
           trigger={
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               New Sift
             </Button>
           }
-          onCreated={(id) => navigate(`/extractions/${id}`)}
+          onCreated={(id) => navigate(`/sifts/${id}`)}
         />
       </div>
 
@@ -47,7 +47,7 @@ export function ExtractionsPage() {
         </Card>
       )}
 
-      {extractions && extractions.length === 0 && (
+      {sifts && sifts.length === 0 && (
         <div className="text-center py-20 text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium">No sifts yet</p>
@@ -55,7 +55,7 @@ export function ExtractionsPage() {
         </div>
       )}
 
-      {extractions && extractions.length > 0 && (
+      {sifts && sifts.length > 0 && (
         <div className="rounded-md border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -67,11 +67,11 @@ export function ExtractionsPage() {
               </tr>
             </thead>
             <tbody>
-              {extractions.map((ext) => (
+              {sifts.map((ext) => (
                 <tr
                   key={ext.id}
                   className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/extractions/${ext.id}`)}
+                  onClick={() => navigate(`/sifts/${ext.id}`)}
                 >
                   <td className="px-4 py-3">
                     <div className="font-medium">{ext.name}</div>

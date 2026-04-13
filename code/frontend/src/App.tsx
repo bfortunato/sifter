@@ -7,8 +7,8 @@ import {
   MessageCircle,
   Settings,
 } from "lucide-react";
-import { ExtractionsPage } from "@/pages/ExtractionsPage";
-import { ExtractionDetailPage } from "@/pages/ExtractionDetailPage";
+import { SiftsPage } from "@/pages/SiftsPage";
+import { SiftDetailPage } from "@/pages/SiftDetailPage";
 import { ChatPage } from "@/pages/ChatPage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
@@ -46,7 +46,7 @@ function NavBar() {
         <div className="flex items-center gap-1 flex-1">
           <NavLink to="/" end className={navLinkClass}>
             <FileText className="h-4 w-4" />
-            Extractions
+            Sifts
           </NavLink>
           <NavLink to="/folders" className={navLinkClass}>
             <Folder className="h-4 w-4" />
@@ -90,15 +90,15 @@ function AppRoutes() {
           path="/"
           element={
             <ProtectedRoute>
-              <ExtractionsPage />
+              <SiftsPage />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/extractions/:id"
+          path="/sifts/:id"
           element={
             <ProtectedRoute>
-              <ExtractionDetailPage />
+              <SiftDetailPage />
             </ProtectedRoute>
           }
         />

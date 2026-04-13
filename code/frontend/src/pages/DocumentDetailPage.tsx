@@ -81,7 +81,7 @@ export default function DocumentDetailPage() {
 
       {/* Per-sift results */}
       <div className="space-y-4">
-        <h2 className="font-semibold">Extraction Results</h2>
+        <h2 className="font-semibold">Sift Results</h2>
         {doc.extraction_statuses?.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No sifts linked to this document's folder.

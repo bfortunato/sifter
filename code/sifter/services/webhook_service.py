@@ -15,9 +15,13 @@ logger = structlog.get_logger()
 def _matches_pattern(pattern: str, event: str) -> bool:
     """
     Match event against a wildcard pattern.
-    - '*'  matches any single segment (split by '.')
-    - '**' matches any number of segments
+    - '*' alone or '**' — matches any event (catch-all)
+    - '*'  within a path matches any single segment (e.g. 'sift.*')
+    - '**' within a path matches any number of segments
     """
+    if pattern in ("*", "**"):
+        return True
+
     def _match(pp: list[str], ep: list[str]) -> bool:
         if not pp and not ep:
             return True

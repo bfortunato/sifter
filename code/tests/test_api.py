@@ -44,9 +44,10 @@ async def clean_db(client):
     """Wipe test collections before each test."""
     from sifter.db import get_db
     db = get_db()
-    await db["extractions"].delete_many({})
-    await db["extraction_results"].delete_many({})
-    await db["aggregations"].delete_many({})
+    for col in ("extractions", "extraction_results", "aggregations",
+                "folders", "documents", "folder_extractors",
+                "document_extraction_statuses", "webhooks"):
+        await db[col].delete_many({})
     yield
 
 

@@ -46,7 +46,7 @@ async def clean_db(client):
     db = get_db()
     for col in ("sifts", "sift_results", "aggregations",
                 "folders", "documents", "folder_extractors",
-                "document_extraction_statuses", "webhooks"):
+                "document_sift_statuses", "webhooks"):
         await db[col].delete_many({})
     yield
 
@@ -158,7 +158,7 @@ async def test_get_records_empty(client):
 
 async def _insert_records(extraction_id, records, org_id=TEST_ORG_ID):
     from sifter.db import get_db
-    from sifter.services.extraction_results import SiftResultsService
+    from sifter.services.sift_results import SiftResultsService
     svc = SiftResultsService(get_db())
     await svc.ensure_indexes()
     for doc_id, doc_type, conf, data in records:
@@ -254,7 +254,7 @@ async def test_create_and_list_aggregation(client):
         mock_llm.return_value = mock_response
         r2 = await client.post("/api/aggregations", json={
             "name": "Count All",
-            "extraction_id": eid,
+            "sift_id": eid,
             "aggregation_query": "count all documents",
         })
         # Let the background task run while mock is still active
@@ -263,10 +263,10 @@ async def test_create_and_list_aggregation(client):
     assert r2.status_code == 202
     agg = r2.json()
     assert agg["name"] == "Count All"
-    assert agg["extraction_id"] == eid
+    assert agg["sift_id"] == eid
 
     # List
-    r3 = await client.get(f"/api/aggregations?extraction_id={eid}")
+    r3 = await client.get(f"/api/aggregations?sift_id={eid}")
     assert r3.status_code == 200
     assert len(r3.json()) == 1
 
@@ -292,7 +292,7 @@ async def test_aggregation_execute(client):
         mock_llm.return_value = mock_response
         r2 = await client.post("/api/aggregations", json={
             "name": "Total by Client",
-            "extraction_id": eid,
+            "sift_id": eid,
             "aggregation_query": "total by client",
         })
         # Let the background pipeline generation task run while mock is still active
@@ -324,7 +324,7 @@ async def test_delete_aggregation(client):
         mock_llm.return_value = mock_response
         r2 = await client.post("/api/aggregations", json={
             "name": "To Delete",
-            "extraction_id": eid,
+            "sift_id": eid,
             "aggregation_query": "count",
         })
 
@@ -376,7 +376,7 @@ async def test_chat_with_extraction_context(client):
         mock_llm.return_value = mock_chat_response
         r2 = await client.post("/api/chat", json={
             "message": "What is the total amount?",
-            "extraction_id": eid,
+            "sift_id": eid,
         })
 
     assert r2.status_code == 200

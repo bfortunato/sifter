@@ -1,5 +1,5 @@
-from .extraction import Sift, SiftStatus
-from .extraction_result import SiftResult
+from .sift import Sift, SiftStatus
+from .sift_result import SiftResult
 from .aggregation import Aggregation, AggregationStatus
 
 __all__ = [

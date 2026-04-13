@@ -19,7 +19,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    extraction_id: Optional[str] = None
+    sift_id: Optional[str] = None
     history: list[ChatMessage] = []
 
 
@@ -39,7 +39,7 @@ async def chat(
     history_dicts = [{"role": m.role, "content": m.content} for m in body.history]
     try:
         result = await qa_chat(
-            extraction_id=body.extraction_id,
+            extraction_id=body.sift_id,
             message=body.message,
             history=history_dicts,
             org_id=principal.org_id,

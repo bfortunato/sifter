@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/aggregations", tags=["aggregations"])
 class CreateAggregationRequest(BaseModel):
     name: str
     description: str = ""
-    extraction_id: str
+    sift_id: str
     aggregation_query: str
 
 
@@ -31,7 +31,7 @@ async def create_aggregation(
     aggregation = await svc.create(
         name=body.name,
         description=body.description,
-        extraction_id=body.extraction_id,
+        sift_id=body.sift_id,
         query=body.aggregation_query,
         org_id=principal.org_id,
     )
@@ -40,12 +40,12 @@ async def create_aggregation(
 
 @router.get("", response_model=list[dict])
 async def list_aggregations(
-    extraction_id: str | None = None,
+    sift_id: str | None = None,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = AggregationService(db)
-    aggregations = await svc.list_all(extraction_id=extraction_id, org_id=principal.org_id)
+    aggregations = await svc.list_all(sift_id=sift_id, org_id=principal.org_id)
     return [_agg_to_dict(a) for a in aggregations]
 
 
@@ -119,7 +119,7 @@ def _agg_to_dict(a: Aggregation) -> dict:
         "organization_id": a.organization_id,
         "name": a.name,
         "description": a.description,
-        "extraction_id": a.extraction_id,
+        "sift_id": a.sift_id,
         "aggregation_query": a.aggregation_query,
         "pipeline": a.pipeline,
         "aggregation_error": a.aggregation_error,

@@ -3,7 +3,7 @@ import type { ChatMessage, ChatResponse } from "./types";
 
 export const sendChatMessage = (
   message: string,
-  extractionId?: string,
+  siftId?: string,
   history: ChatMessage[] = []
 ): Promise<ChatResponse> =>
   apiFetchJson<ChatResponse>("/api/chat", {
@@ -11,7 +11,7 @@ export const sendChatMessage = (
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       message,
-      extraction_id: extractionId,
+      sift_id: siftId,
       history: history.map(({ role, content }) => ({ role, content })),
     }),
   });

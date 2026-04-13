@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ExtractionRecord } from "@/api/types";
+import type { SiftRecord } from "@/api/types";
 
 interface RecordsTableProps {
-  records: ExtractionRecord[];
+  records: SiftRecord[];
   isLoading?: boolean;
 }
 

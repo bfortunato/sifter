@@ -12,9 +12,9 @@ from pydantic import BaseModel
 from ..auth import Principal, get_current_principal
 from ..config import config
 from ..db import get_db
-from ..models.extraction import Sift, SiftStatus
-from ..services.extraction_results import SiftResultsService
-from ..services.extraction_service import SiftService
+from ..models.sift import Sift, SiftStatus
+from ..services.sift_results import SiftResultsService
+from ..services.sift_service import SiftService
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/sifts", tags=["sifts"])
@@ -156,7 +156,7 @@ async def reindex_sift(
 ):
     from ..services.document_service import DocumentService
     from ..services.document_processor import enqueue
-    from ..models.document import DocumentExtractionStatusEnum
+    from ..models.document import DocumentSiftStatusEnum
 
     svc = SiftService(db)
     doc_svc = DocumentService(db)
@@ -166,8 +166,8 @@ async def reindex_sift(
         raise HTTPException(status_code=404, detail="Sift not found")
 
     # Find all documents that were processed by this sift (folder-based)
-    statuses = await db["document_extraction_statuses"].find(
-        {"extraction_id": sift_id, "organization_id": principal.org_id}
+    statuses = await db["document_sift_statuses"].find(
+        {"sift_id": sift_id, "organization_id": principal.org_id}
     ).to_list(length=None)
 
     folder_doc_paths: list[tuple[str, str]] = []  # (document_id, storage_path)
@@ -189,7 +189,7 @@ async def reindex_sift(
         raise HTTPException(status_code=400, detail="No documents found to reindex")
 
     # Clear existing results
-    await svc.results_service.delete_by_extraction_id(sift_id)
+    await svc.results_service.delete_by_sift_id(sift_id)
     await svc.update(
         sift_id,
         {
@@ -203,9 +203,9 @@ async def reindex_sift(
 
     # Re-enqueue folder-based documents through the queue
     for doc_id, storage_path in folder_doc_paths:
-        await db["document_extraction_statuses"].update_one(
-            {"document_id": doc_id, "extraction_id": sift_id},
-            {"$set": {"status": DocumentExtractionStatusEnum.PENDING, "error_message": None, "extraction_record_id": None}},
+        await db["document_sift_statuses"].update_one(
+            {"document_id": doc_id, "sift_id": sift_id},
+            {"$set": {"status": DocumentSiftStatusEnum.PENDING, "error_message": None, "sift_record_id": None}},
         )
         enqueue(doc_id, sift_id, storage_path, principal.org_id)
 

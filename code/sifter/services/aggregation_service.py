@@ -9,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ..models.aggregation import Aggregation, AggregationStatus
 from . import pipeline_agent
-from .extraction_results import SiftResultsService
+from .sift_results import SiftResultsService
 
 logger = structlog.get_logger()
 
@@ -23,7 +23,7 @@ class AggregationService:
         self.results_service = SiftResultsService(db)
 
     async def ensure_indexes(self):
-        await self.col.create_index("extraction_id", name="extraction_id_idx")
+        await self.col.create_index("sift_id", name="sift_id_idx")
         await self.col.create_index("created_at", name="created_at_idx")
         await self.col.create_index("organization_id", name="organization_id_idx")
 
@@ -31,7 +31,7 @@ class AggregationService:
         self,
         name: str,
         description: str,
-        extraction_id: str,
+        sift_id: str,
         query: str,
         org_id: Optional[str] = None,
     ) -> Aggregation:
@@ -39,7 +39,7 @@ class AggregationService:
             organization_id=org_id,
             name=name,
             description=description,
-            extraction_id=extraction_id,
+            sift_id=sift_id,
             aggregation_query=query,
             status=AggregationStatus.GENERATING,
         )
@@ -49,17 +49,17 @@ class AggregationService:
 
         # Fire-and-forget background pipeline generation
         asyncio.create_task(
-            self._generate_and_store_pipeline(aggregation.id, extraction_id, query, org_id)
+            self._generate_and_store_pipeline(aggregation.id, sift_id, query, org_id)
         )
 
         return aggregation
 
     async def _generate_and_store_pipeline(
-        self, agg_id: str, extraction_id: str, query: str, org_id: Optional[str] = None
+        self, agg_id: str, sift_id: str, query: str, org_id: Optional[str] = None
     ) -> None:
         try:
             samples = await self.results_service.get_sample_records(
-                extraction_id, limit=10, org_id=org_id
+                sift_id, limit=10, org_id=org_id
             )
             pipeline_json = await pipeline_agent.generate_pipeline(query, samples)
             # Parse to list for storage
@@ -88,12 +88,12 @@ class AggregationService:
 
     async def list_all(
         self,
-        extraction_id: Optional[str] = None,
+        sift_id: Optional[str] = None,
         org_id: Optional[str] = None,
     ) -> list[Aggregation]:
         query: dict = {}
-        if extraction_id:
-            query["extraction_id"] = extraction_id
+        if sift_id:
+            query["sift_id"] = sift_id
         if org_id:
             query["organization_id"] = org_id
         cursor = self.col.find(query).sort("created_at", -1)
@@ -122,7 +122,7 @@ class AggregationService:
             raise ValueError("Aggregation pipeline not yet generated")
 
         results = await self.results_service.execute_aggregation(
-            aggregation.extraction_id,
+            aggregation.sift_id,
             aggregation.pipeline,
             org_id=org_id,
         )
@@ -145,26 +145,26 @@ class AggregationService:
 
         asyncio.create_task(
             self._generate_and_store_pipeline(
-                agg_id, aggregation.extraction_id, aggregation.aggregation_query, org_id
+                agg_id, aggregation.sift_id, aggregation.aggregation_query, org_id
             )
         )
 
         return await self.get(agg_id, org_id=org_id)
 
     async def live_query(
-        self, extraction_id: str, query: str, org_id: Optional[str] = None
+        self, sift_id: str, query: str, org_id: Optional[str] = None
     ) -> tuple[list[dict[str, Any]], list]:
         """
-        Run a one-off NL query against an extraction's results.
+        Run a one-off NL query against a sift's results.
         Returns (results, pipeline_list).
         """
         samples = await self.results_service.get_sample_records(
-            extraction_id, limit=10, org_id=org_id
+            sift_id, limit=10, org_id=org_id
         )
         pipeline_json = await pipeline_agent.generate_pipeline(query, samples)
         pipeline_list = json.loads(pipeline_json)
         results = await self.results_service.execute_aggregation(
-            extraction_id, pipeline_list, org_id=org_id
+            sift_id, pipeline_list, org_id=org_id
         )
         return results, pipeline_list
 

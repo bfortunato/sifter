@@ -25,8 +25,8 @@ class UpdateFolderRequest(BaseModel):
     description: Optional[str] = None
 
 
-class LinkExtractorRequest(BaseModel):
-    extraction_id: str
+class LinkSiftRequest(BaseModel):
+    sift_id: str
 
 
 def _folder_dict(f: Folder) -> dict:
@@ -78,7 +78,7 @@ async def get_folder(
         "extractors": [
             {
                 "id": e.id,
-                "extraction_id": e.extraction_id,
+                "sift_id": e.sift_id,
                 "created_at": e.created_at.isoformat(),
             }
             for e in extractors
@@ -113,7 +113,87 @@ async def delete_folder(
         raise HTTPException(status_code=404, detail="Folder not found")
 
 
-# ---- Folder ↔ Extractor links ----
+# ---- Folder ↔ Sift links ----
+
+@router.get("/{folder_id}/sifts")
+async def list_sifts_for_folder(
+    folder_id: str,
+    principal: Principal = Depends(get_current_principal),
+    db=Depends(get_db),
+):
+    svc = DocumentService(db)
+    folder = await svc.get_folder(folder_id, principal.org_id)
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    links = await svc.list_folder_extractors(folder_id, principal.org_id)
+    return [
+        {
+            "id": l.id,
+            "sift_id": l.sift_id,
+            "created_at": l.created_at.isoformat(),
+        }
+        for l in links
+    ]
+
+
+@router.post("/{folder_id}/sifts", status_code=status.HTTP_201_CREATED)
+async def link_sift(
+    folder_id: str,
+    body: LinkSiftRequest,
+    principal: Principal = Depends(get_current_principal),
+    db=Depends(get_db),
+):
+    svc = DocumentService(db)
+    folder = await svc.get_folder(folder_id, principal.org_id)
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+
+    link = await svc.link_extractor(folder_id, body.sift_id, principal.org_id)
+
+    # Enqueue all existing folder documents for the newly linked sift
+    existing_docs = await db["documents"].find(
+        {"folder_id": folder_id, "organization_id": principal.org_id}
+    ).to_list(length=None)
+
+    enqueued = 0
+    for doc in existing_docs:
+        doc_id = str(doc["_id"])
+        storage_path = doc.get("storage_path")
+        if not storage_path:
+            continue
+        # Check no status already exists for this doc+sift pair
+        existing = await db["document_sift_statuses"].find_one(
+            {"document_id": doc_id, "sift_id": body.sift_id}
+        )
+        if existing:
+            continue
+        await svc.create_sift_status(doc_id, body.sift_id, principal.org_id)
+        enqueue(doc_id, body.sift_id, storage_path, principal.org_id)
+        enqueued += 1
+
+    return {
+        "id": link.id,
+        "folder_id": link.folder_id,
+        "sift_id": link.sift_id,
+        "created_at": link.created_at.isoformat(),
+        "enqueued_existing": enqueued,
+    }
+
+
+@router.delete("/{folder_id}/sifts/{sift_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unlink_sift(
+    folder_id: str,
+    sift_id: str,
+    principal: Principal = Depends(get_current_principal),
+    db=Depends(get_db),
+):
+    svc = DocumentService(db)
+    ok = await svc.unlink_extractor(folder_id, sift_id, principal.org_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+
+# ---- Legacy extractor routes (backward compat) ----
 
 @router.get("/{folder_id}/extractors")
 async def list_extractors(
@@ -129,7 +209,8 @@ async def list_extractors(
     return [
         {
             "id": l.id,
-            "extraction_id": l.extraction_id,
+            "sift_id": l.sift_id,
+            "extraction_id": l.sift_id,  # legacy compat
             "created_at": l.created_at.isoformat(),
         }
         for l in links
@@ -139,16 +220,21 @@ async def list_extractors(
 @router.post("/{folder_id}/extractors", status_code=status.HTTP_201_CREATED)
 async def link_extractor(
     folder_id: str,
-    body: LinkExtractorRequest,
+    body: dict,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
+    # Accept both sift_id and extraction_id for backward compat
+    sift_id = body.get("sift_id") or body.get("extraction_id")
+    if not sift_id:
+        raise HTTPException(status_code=422, detail="sift_id is required")
+
     svc = DocumentService(db)
     folder = await svc.get_folder(folder_id, principal.org_id)
     if not folder:
         raise HTTPException(status_code=404, detail="Folder not found")
 
-    link = await svc.link_extractor(folder_id, body.extraction_id, principal.org_id)
+    link = await svc.link_extractor(folder_id, sift_id, principal.org_id)
 
     # Enqueue all existing folder documents for the newly linked sift
     existing_docs = await db["documents"].find(
@@ -161,34 +247,34 @@ async def link_extractor(
         storage_path = doc.get("storage_path")
         if not storage_path:
             continue
-        # Check no status already exists for this doc+extraction pair
-        existing = await db["document_extraction_statuses"].find_one(
-            {"document_id": doc_id, "extraction_id": body.extraction_id}
+        existing = await db["document_sift_statuses"].find_one(
+            {"document_id": doc_id, "sift_id": sift_id}
         )
         if existing:
             continue
-        await svc.create_extraction_status(doc_id, body.extraction_id, principal.org_id)
-        enqueue(doc_id, body.extraction_id, storage_path, principal.org_id)
+        await svc.create_sift_status(doc_id, sift_id, principal.org_id)
+        enqueue(doc_id, sift_id, storage_path, principal.org_id)
         enqueued += 1
 
     return {
         "id": link.id,
         "folder_id": link.folder_id,
-        "extraction_id": link.extraction_id,
+        "sift_id": link.sift_id,
+        "extraction_id": link.sift_id,  # legacy compat
         "created_at": link.created_at.isoformat(),
         "enqueued_existing": enqueued,
     }
 
 
-@router.delete("/{folder_id}/extractors/{extraction_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{folder_id}/extractors/{sift_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def unlink_extractor(
     folder_id: str,
-    extraction_id: str,
+    sift_id: str,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = DocumentService(db)
-    ok = await svc.unlink_extractor(folder_id, extraction_id, principal.org_id)
+    ok = await svc.unlink_extractor(folder_id, sift_id, principal.org_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Link not found")
 
@@ -238,13 +324,13 @@ async def upload_document(
         uploaded_by=principal.user_id,
     )
 
-    # Get linked extractors and enqueue processing for each
+    # Get linked sifts and enqueue processing for each
     links = await svc.list_folder_extractors(folder_id, principal.org_id)
     enqueued = []
     for link in links:
-        await svc.create_extraction_status(doc.id, link.extraction_id, principal.org_id)
-        enqueue(doc.id, link.extraction_id, doc.storage_path, principal.org_id)
-        enqueued.append(link.extraction_id)
+        await svc.create_sift_status(doc.id, link.sift_id, principal.org_id)
+        enqueue(doc.id, link.sift_id, doc.storage_path, principal.org_id)
+        enqueued.append(link.sift_id)
 
     return {
         "id": doc.id,

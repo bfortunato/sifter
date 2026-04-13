@@ -3,7 +3,7 @@ import type {
   ChatResponse,
   CreateSiftPayload,
   Sift,
-  ExtractionRecord,
+  SiftRecord,
   QueryResult,
 } from "./types";
 
@@ -44,8 +44,8 @@ export const reindexSift = (id: string): Promise<unknown> =>
 export const resetSift = (id: string): Promise<Sift> =>
   apiFetchJson<Sift>(`${BASE}/${id}/reset`, { method: "POST" });
 
-export const fetchSiftRecords = (id: string): Promise<ExtractionRecord[]> =>
-  apiFetchJson<ExtractionRecord[]>(`${BASE}/${id}/records`);
+export const fetchSiftRecords = (id: string): Promise<SiftRecord[]> =>
+  apiFetchJson<SiftRecord[]>(`${BASE}/${id}/records`);
 
 export const exportSiftCsv = async (id: string, name: string): Promise<void> => {
   const res = await apiFetch(`${BASE}/${id}/records/csv`);

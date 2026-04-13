@@ -1,6 +1,6 @@
 """
 Background document processing queue.
-Workers pick up (document_id, extraction_id, org_id) tasks and run extraction.
+Workers pick up (document_id, sift_id, org_id) tasks and run extraction.
 """
 import asyncio
 from dataclasses import dataclass
@@ -9,7 +9,7 @@ from typing import Optional
 import structlog
 
 from ..db import get_db
-from ..models.document import DocumentExtractionStatusEnum
+from ..models.document import DocumentSiftStatusEnum
 
 logger = structlog.get_logger()
 
@@ -19,16 +19,16 @@ _queue: asyncio.Queue = asyncio.Queue()
 @dataclass
 class ProcessingTask:
     document_id: str
-    extraction_id: str
+    sift_id: str
     storage_path: str
     org_id: str
 
 
-def enqueue(document_id: str, extraction_id: str, storage_path: str, org_id: str) -> None:
+def enqueue(document_id: str, sift_id: str, storage_path: str, org_id: str) -> None:
     """Add a processing task to the queue (non-async, safe to call from async context)."""
     task = ProcessingTask(
         document_id=document_id,
-        extraction_id=extraction_id,
+        sift_id=sift_id,
         storage_path=storage_path,
         org_id=org_id,
     )
@@ -36,7 +36,7 @@ def enqueue(document_id: str, extraction_id: str, storage_path: str, org_id: str
     logger.info(
         "task_enqueued",
         document_id=document_id,
-        extraction_id=extraction_id,
+        sift_id=sift_id,
         queue_size=_queue.qsize(),
     )
 
@@ -47,7 +47,7 @@ async def worker() -> None:
     """
     # Import here to avoid circular imports at module load time
     from .document_service import DocumentService
-    from .extraction_service import SiftService
+    from .sift_service import SiftService
 
     logger.info("document_processor_worker_started")
     while True:
@@ -59,31 +59,31 @@ async def worker() -> None:
         logger.info(
             "processing_document",
             document_id=task.document_id,
-            extraction_id=task.extraction_id,
+            sift_id=task.sift_id,
         )
 
         try:
             # Mark as processing
-            await doc_svc.update_extraction_status(
+            await doc_svc.update_sift_status(
                 task.document_id,
-                task.extraction_id,
-                DocumentExtractionStatusEnum.PROCESSING,
+                task.sift_id,
+                DocumentSiftStatusEnum.PROCESSING,
             )
 
             # Run extraction
-            result = await ext_svc.process_single_document(task.extraction_id, task.storage_path)
+            result = await ext_svc.process_single_document(task.sift_id, task.storage_path)
 
             # Mark as done
-            await doc_svc.update_extraction_status(
+            await doc_svc.update_sift_status(
                 task.document_id,
-                task.extraction_id,
-                DocumentExtractionStatusEnum.DONE,
-                extraction_record_id=result.id,
+                task.sift_id,
+                DocumentSiftStatusEnum.DONE,
+                sift_record_id=result.id,
             )
             logger.info(
                 "document_processed",
                 document_id=task.document_id,
-                extraction_id=task.extraction_id,
+                sift_id=task.sift_id,
                 confidence=result.confidence,
             )
 
@@ -94,24 +94,24 @@ async def worker() -> None:
                 event="sift.document.processed",
                 payload={
                     "document_id": task.document_id,
-                    "sift_id": task.extraction_id,
+                    "sift_id": task.sift_id,
                     "record_id": result.id,
                 },
-                sift_id=task.extraction_id,
+                sift_id=task.sift_id,
             )
 
         except Exception as e:
             logger.error(
                 "document_processing_failed",
                 document_id=task.document_id,
-                extraction_id=task.extraction_id,
+                sift_id=task.sift_id,
                 error=str(e),
             )
             try:
-                await doc_svc.update_extraction_status(
+                await doc_svc.update_sift_status(
                     task.document_id,
-                    task.extraction_id,
-                    DocumentExtractionStatusEnum.ERROR,
+                    task.sift_id,
+                    DocumentSiftStatusEnum.ERROR,
                     error_message=str(e),
                 )
                 await _dispatch_webhook(
@@ -120,10 +120,10 @@ async def worker() -> None:
                     event="sift.error",
                     payload={
                         "document_id": task.document_id,
-                        "sift_id": task.extraction_id,
+                        "sift_id": task.sift_id,
                         "error": str(e),
                     },
-                    sift_id=task.extraction_id,
+                    sift_id=task.sift_id,
                 )
             except Exception as update_err:
                 logger.error("status_update_failed", error=str(update_err))

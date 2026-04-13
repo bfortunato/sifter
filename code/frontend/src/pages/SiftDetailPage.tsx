@@ -181,7 +181,7 @@ function AggregationsPanel({ siftId }: { siftId: string }) {
   const handleCreate = () => {
     if (!newName.trim() || !newQuery.trim()) return;
     createMutation.mutate(
-      { name: newName, description: "", extraction_id: siftId, aggregation_query: newQuery },
+      { name: newName, description: "", sift_id: siftId, aggregation_query: newQuery },
       {
         onSuccess: () => {
           setShowCreate(false);

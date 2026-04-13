@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 
 class ReprocessRequest(BaseModel):
-    extraction_id: Optional[str] = None
+    sift_id: Optional[str] = None
 
 
 @router.get("/{document_id}")
@@ -38,15 +38,15 @@ async def get_document(
         "folder_id": doc.folder_id,
         "uploaded_by": doc.uploaded_by,
         "uploaded_at": doc.uploaded_at.isoformat(),
-        "extraction_statuses": [
+        "sift_statuses": [
             {
                 "id": s.id,
-                "extraction_id": s.extraction_id,
+                "sift_id": s.sift_id,
                 "status": s.status,
                 "started_at": s.started_at.isoformat() if s.started_at else None,
                 "completed_at": s.completed_at.isoformat() if s.completed_at else None,
                 "error_message": s.error_message,
-                "extraction_record_id": s.extraction_record_id,
+                "sift_record_id": s.sift_record_id,
             }
             for s in statuses
         ],
@@ -77,24 +77,24 @@ async def reprocess_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Determine which extractors to re-enqueue
-    if body.extraction_id:
-        extraction_ids = [body.extraction_id]
+    # Determine which sifts to re-enqueue
+    if body.sift_id:
+        sift_ids = [body.sift_id]
     else:
         links = await svc.list_folder_extractors(doc.folder_id, principal.org_id)
-        extraction_ids = [l.extraction_id for l in links]
+        sift_ids = [l.sift_id for l in links]
 
-    if not extraction_ids:
-        raise HTTPException(status_code=400, detail="No extractors linked to this document's folder")
+    if not sift_ids:
+        raise HTTPException(status_code=400, detail="No sifts linked to this document's folder")
 
-    from ..models.document import DocumentExtractionStatusEnum
+    from ..models.document import DocumentSiftStatusEnum
 
     enqueued = []
-    for extraction_id in extraction_ids:
-        await svc.update_extraction_status(
-            document_id, extraction_id, DocumentExtractionStatusEnum.PENDING
+    for sift_id in sift_ids:
+        await svc.update_sift_status(
+            document_id, sift_id, DocumentSiftStatusEnum.PENDING
         )
-        enqueue(document_id, extraction_id, doc.storage_path, principal.org_id)
-        enqueued.append(extraction_id)
+        enqueue(document_id, sift_id, doc.storage_path, principal.org_id)
+        enqueued.append(sift_id)
 
     return {"document_id": document_id, "enqueued_for": enqueued}

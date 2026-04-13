@@ -5,11 +5,15 @@ from pydantic import BaseModel, Field
 from bson import ObjectId
 
 
-class DocumentExtractionStatusEnum(str, Enum):
+class DocumentSiftStatusEnum(str, Enum):
     PENDING = "pending"
     PROCESSING = "processing"
     DONE = "done"
     ERROR = "error"
+
+
+# Legacy alias
+DocumentExtractionStatusEnum = DocumentSiftStatusEnum
 
 
 class Folder(BaseModel):
@@ -68,11 +72,11 @@ class Document(BaseModel):
         return cls(**doc)
 
 
-class FolderExtractor(BaseModel):
+class FolderSift(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     organization_id: str
     folder_id: str
-    extraction_id: str
+    sift_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
@@ -84,25 +88,32 @@ class FolderExtractor(BaseModel):
         return d
 
     @classmethod
-    def from_mongo(cls, doc: dict) -> "FolderExtractor":
+    def from_mongo(cls, doc: dict) -> "FolderSift":
         if doc is None:
             return None
         doc = dict(doc)
         if "_id" in doc:
             doc["_id"] = str(doc["_id"])
+        # Migrate old extraction_id field
+        if "extraction_id" in doc and "sift_id" not in doc:
+            doc["sift_id"] = doc.pop("extraction_id")
         return cls(**doc)
 
 
-class DocumentExtractionStatus(BaseModel):
+# Legacy alias
+FolderExtractor = FolderSift
+
+
+class DocumentSiftStatus(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     organization_id: str
     document_id: str
-    extraction_id: str
-    status: DocumentExtractionStatusEnum = DocumentExtractionStatusEnum.PENDING
+    sift_id: str
+    status: DocumentSiftStatusEnum = DocumentSiftStatusEnum.PENDING
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
-    extraction_record_id: Optional[str] = None
+    sift_record_id: Optional[str] = None
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
 
@@ -113,10 +124,19 @@ class DocumentExtractionStatus(BaseModel):
         return d
 
     @classmethod
-    def from_mongo(cls, doc: dict) -> "DocumentExtractionStatus":
+    def from_mongo(cls, doc: dict) -> "DocumentSiftStatus":
         if doc is None:
             return None
         doc = dict(doc)
         if "_id" in doc:
             doc["_id"] = str(doc["_id"])
+        # Migrate old field names
+        if "extraction_id" in doc and "sift_id" not in doc:
+            doc["sift_id"] = doc.pop("extraction_id")
+        if "extraction_record_id" in doc and "sift_record_id" not in doc:
+            doc["sift_record_id"] = doc.pop("extraction_record_id")
         return cls(**doc)
+
+
+# Legacy alias
+DocumentExtractionStatus = DocumentSiftStatus

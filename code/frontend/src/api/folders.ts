@@ -1,7 +1,7 @@
 import { apiFetch, apiFetchJson } from "../lib/apiFetch";
 import {
   Document,
-  DocumentExtractionStatus,
+  DocumentSiftStatus,
   Folder,
   FolderExtractor,
 } from "./types";
@@ -42,22 +42,22 @@ export async function deleteFolder(folderId: string): Promise<void> {
   await apiFetch(`/api/folders/${folderId}`, { method: "DELETE" });
 }
 
-// ---- Folder-Extractor Links ----
+// ---- Folder-Sift Links ----
 
 export async function fetchFolderExtractors(folderId: string): Promise<FolderExtractor[]> {
   return apiFetchJson<FolderExtractor[]>(`/api/folders/${folderId}/extractors`);
 }
 
-export async function linkExtractor(folderId: string, extractionId: string): Promise<FolderExtractor> {
+export async function linkExtractor(folderId: string, siftId: string): Promise<FolderExtractor> {
   return apiFetchJson<FolderExtractor>(`/api/folders/${folderId}/extractors`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ extraction_id: extractionId }),
+    body: JSON.stringify({ sift_id: siftId }),
   });
 }
 
-export async function unlinkExtractor(folderId: string, extractionId: string): Promise<void> {
-  await apiFetch(`/api/folders/${folderId}/extractors/${extractionId}`, {
+export async function unlinkExtractor(folderId: string, siftId: string): Promise<void> {
+  await apiFetch(`/api/folders/${folderId}/extractors/${siftId}`, {
     method: "DELETE",
   });
 }
@@ -72,7 +72,7 @@ export interface DocumentWithStatuses {
   size_bytes: number;
   uploaded_by: string;
   uploaded_at: string;
-  extraction_statuses: DocumentExtractionStatus[];
+  sift_statuses: DocumentSiftStatus[];
 }
 
 export async function fetchFolderDocuments(
@@ -100,7 +100,7 @@ export async function uploadDocument(
 
 export async function fetchDocument(
   documentId: string
-): Promise<Document & { extraction_statuses: DocumentExtractionStatus[] }> {
+): Promise<Document & { sift_statuses: DocumentSiftStatus[] }> {
   return apiFetchJson(`/api/documents/${documentId}`);
 }
 
@@ -110,11 +110,11 @@ export async function deleteDocument(documentId: string): Promise<void> {
 
 export async function reprocessDocument(
   documentId: string,
-  extractionId?: string
+  siftId?: string
 ): Promise<{ document_id: string; enqueued_for: string[] }> {
   return apiFetchJson(`/api/documents/${documentId}/reprocess`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ extraction_id: extractionId }),
+    body: JSON.stringify({ sift_id: siftId }),
   });
 }

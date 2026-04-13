@@ -6,7 +6,7 @@ import { fetchSifts } from "../api/extractions";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
-import { DocumentExtractionStatus } from "../api/types";
+import { DocumentSiftStatus } from "../api/types";
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -33,8 +33,8 @@ export default function DocumentDetailPage() {
     enabled: !!documentId,
     refetchInterval: (query: any) => {
       const doc = query.state.data;
-      const hasProcessing = doc?.extraction_statuses?.some(
-        (s: DocumentExtractionStatus) => s.status === "processing" || s.status === "pending"
+      const hasProcessing = doc?.sift_statuses?.some(
+        (s: DocumentSiftStatus) => s.status === "processing" || s.status === "pending"
       );
       return hasProcessing ? 2000 : false;
     },
@@ -46,7 +46,7 @@ export default function DocumentDetailPage() {
   });
 
   const reprocessMutation = useMutation({
-    mutationFn: (extractionId?: string) => reprocessDocument(documentId!, extractionId),
+    mutationFn: (siftId?: string) => reprocessDocument(documentId!, siftId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["document", documentId] }),
   });
 
@@ -82,19 +82,19 @@ export default function DocumentDetailPage() {
       {/* Per-sift results */}
       <div className="space-y-4">
         <h2 className="font-semibold">Sift Results</h2>
-        {doc.extraction_statuses?.length === 0 ? (
+        {doc.sift_statuses?.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No sifts linked to this document's folder.
           </p>
         ) : (
-          doc.extraction_statuses?.map((s: DocumentExtractionStatus) => {
-            const ext = extractions.find((e) => e.id === s.extraction_id);
+          doc.sift_statuses?.map((s: DocumentSiftStatus) => {
+            const ext = extractions.find((e) => e.id === s.sift_id);
             return (
-              <div key={s.extraction_id} className="border rounded-lg p-4 space-y-3">
+              <div key={s.sift_id} className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">
-                      {ext?.name ?? s.extraction_id}
+                      {ext?.name ?? s.sift_id}
                     </span>
                     <Badge variant={statusVariant(s.status) as any} className="capitalize text-xs">
                       {s.status === "processing" && (
@@ -106,7 +106,7 @@ export default function DocumentDetailPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => reprocessMutation.mutate(s.extraction_id)}
+                    onClick={() => reprocessMutation.mutate(s.sift_id)}
                     disabled={reprocessMutation.isPending}
                     className="flex items-center gap-1"
                   >

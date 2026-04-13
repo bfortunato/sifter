@@ -3,8 +3,8 @@ import type { Aggregation, AggregationResult, CreateAggregationPayload } from ".
 
 const BASE = "/api/aggregations";
 
-export const fetchAggregations = (extractionId?: string): Promise<Aggregation[]> => {
-  const url = extractionId ? `${BASE}?extraction_id=${extractionId}` : BASE;
+export const fetchAggregations = (siftId?: string): Promise<Aggregation[]> => {
+  const url = siftId ? `${BASE}?sift_id=${siftId}` : BASE;
   return apiFetchJson<Aggregation[]>(url);
 };
 

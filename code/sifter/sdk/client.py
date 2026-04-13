@@ -59,7 +59,7 @@ def _matches_pattern(pattern: str, event: str) -> bool:
 
 
 class SiftHandle:
-    """Handle to a sift (extraction). Provides sync convenience methods."""
+    """Handle to a sift. Provides sync convenience methods."""
 
     def __init__(self, data: dict, client: "Sifter"):
         self._data = data
@@ -332,7 +332,7 @@ class FolderHandle:
             r = http.post(
                 f"{self._client.api_url}/api/folders/{self.id}/extractors",
                 headers=self._client._auth_headers(),
-                json={"extraction_id": sift.id},
+                json={"sift_id": sift.id},
             )
             r.raise_for_status()
         return self

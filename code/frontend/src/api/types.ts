@@ -52,7 +52,7 @@ export interface Sift {
   updated_at: string;
 }
 
-export interface ExtractionRecord {
+export interface SiftRecord {
   id: string;
   document_id: string;
   document_type: string;
@@ -60,6 +60,9 @@ export interface ExtractionRecord {
   extracted_data: Record<string, unknown>;
   created_at: string;
 }
+
+// Legacy alias
+export type ExtractionRecord = SiftRecord;
 
 export interface CreateSiftPayload {
   name: string;
@@ -77,7 +80,7 @@ export interface Aggregation {
   organization_id: string | null;
   name: string;
   description: string;
-  extraction_id: string;
+  sift_id: string;
   aggregation_query: string;
   pipeline: Record<string, unknown>[] | null;
   aggregation_error: string | null;
@@ -101,7 +104,7 @@ export interface AggregationResult {
 export interface CreateAggregationPayload {
   name: string;
   description?: string;
-  extraction_id: string;
+  sift_id: string;
   aggregation_query: string;
 }
 
@@ -135,7 +138,7 @@ export interface Folder {
 export interface FolderExtractor {
   id: string;
   folder_id?: string;
-  extraction_id: string;
+  sift_id: string;
   created_at: string;
 }
 
@@ -152,12 +155,15 @@ export interface Document {
   storage_path?: string;
 }
 
-export interface DocumentExtractionStatus {
+export interface DocumentSiftStatus {
   id?: string;
-  extraction_id: string;
+  sift_id: string;
   status: "pending" | "processing" | "done" | "error";
   started_at: string | null;
   completed_at: string | null;
   error_message: string | null;
-  extraction_record_id: string | null;
+  sift_record_id: string | null;
 }
+
+// Legacy alias
+export type DocumentExtractionStatus = DocumentSiftStatus;

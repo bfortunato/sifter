@@ -149,10 +149,10 @@ describe("fetchAggregations", () => {
     expect(fetch).toHaveBeenCalledWith("/api/aggregations");
   });
 
-  it("filters by extraction_id when provided", async () => {
+  it("filters by sift_id when provided", async () => {
     vi.stubGlobal("fetch", mockFetch(200, []));
     await fetchAggregations("ext42");
-    expect(fetch).toHaveBeenCalledWith("/api/aggregations?extraction_id=ext42");
+    expect(fetch).toHaveBeenCalledWith("/api/aggregations?sift_id=ext42");
   });
 });
 
@@ -163,7 +163,7 @@ describe("createAggregation", () => {
 
     await createAggregation({
       name: "Test Agg",
-      extraction_id: "ext1",
+      sift_id: "ext1",
       aggregation_query: "total by client",
     });
 
@@ -173,7 +173,7 @@ describe("createAggregation", () => {
         method: "POST",
         body: JSON.stringify({
           name: "Test Agg",
-          extraction_id: "ext1",
+          sift_id: "ext1",
           aggregation_query: "total by client",
         }),
       })
@@ -220,7 +220,7 @@ describe("sendChatMessage", () => {
       expect.objectContaining({
         body: JSON.stringify({
           message: "Follow up",
-          extraction_id: undefined,
+          sift_id: undefined,
           history: [
             { role: "user", content: "Hello" },
             { role: "assistant", content: "Hi!" },

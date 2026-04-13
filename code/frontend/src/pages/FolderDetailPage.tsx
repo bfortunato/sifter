@@ -29,7 +29,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { DocumentWithStatuses } from "../api/folders";
-import { DocumentExtractionStatus } from "../api/types";
+import { DocumentSiftStatus } from "../api/types";
 
 function statusColor(status: string) {
   switch (status) {
@@ -61,7 +61,7 @@ export default function FolderDetailPage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const [selectedExtractorId, setSelectedExtractorId] = useState("");
+  const [selectedSiftId, setSelectedSiftId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
@@ -79,7 +79,7 @@ export default function FolderDetailPage() {
     refetchInterval: (query) => {
       const docs = query.state.data as DocumentWithStatuses[] | undefined;
       const hasProcessing = docs?.some((d) =>
-        d.extraction_statuses?.some((s) => s.status === "processing" || s.status === "pending")
+        d.sift_statuses?.some((s) => s.status === "processing" || s.status === "pending")
       );
       return hasProcessing ? 2000 : false;
     },
@@ -100,16 +100,16 @@ export default function FolderDetailPage() {
   });
 
   const linkMutation = useMutation({
-    mutationFn: () => linkExtractor(folderId!, selectedExtractorId),
+    mutationFn: () => linkExtractor(folderId!, selectedSiftId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["folder", folderId] });
       setShowLinkDialog(false);
-      setSelectedExtractorId("");
+      setSelectedSiftId("");
     },
   });
 
   const unlinkMutation = useMutation({
-    mutationFn: (extractionId: string) => unlinkExtractor(folderId!, extractionId),
+    mutationFn: (siftId: string) => unlinkExtractor(folderId!, siftId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["folder", folderId] }),
   });
 
@@ -131,9 +131,9 @@ export default function FolderDetailPage() {
     }
   };
 
-  const linkedExtractorIds = folder?.extractors?.map((e) => e.extraction_id) ?? [];
+  const linkedSiftIds = folder?.extractors?.map((e) => e.sift_id) ?? [];
   const availableToLink = allSifts.filter(
-    (e) => !linkedExtractorIds.includes(e.id)
+    (e) => !linkedSiftIds.includes(e.id)
   );
 
   if (folderLoading) {
@@ -217,19 +217,19 @@ export default function FolderDetailPage() {
         ) : (
           <div className="space-y-2">
             {folder.extractors?.map((link) => {
-              const ext = allSifts.find((e) => e.id === link.extraction_id);
+              const ext = allSifts.find((e) => e.id === link.sift_id);
               return (
                 <div
                   key={link.id}
                   className="flex items-center justify-between p-3 border rounded-md"
                 >
                   <span className="text-sm font-medium">
-                    {ext?.name ?? link.extraction_id}
+                    {ext?.name ?? link.sift_id}
                   </span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => unlinkMutation.mutate(link.extraction_id)}
+                    onClick={() => unlinkMutation.mutate(link.sift_id)}
                     disabled={unlinkMutation.isPending}
                   >
                     <Unlink className="h-4 w-4 text-muted-foreground" />
@@ -294,12 +294,12 @@ export default function FolderDetailPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
-                  {doc.extraction_statuses?.map((s: DocumentExtractionStatus) => {
-                    const ext = allSifts.find((e) => e.id === s.extraction_id);
+                  {doc.sift_statuses?.map((s: DocumentSiftStatus) => {
+                    const ext = allSifts.find((e) => e.id === s.sift_id);
                     return (
-                      <div key={s.extraction_id} className="flex items-center gap-1">
+                      <div key={s.sift_id} className="flex items-center gap-1">
                         <span className="text-xs text-muted-foreground">
-                          {ext?.name?.substring(0, 12) ?? s.extraction_id.substring(0, 8)}:
+                          {ext?.name?.substring(0, 12) ?? s.sift_id.substring(0, 8)}:
                         </span>
                         <StatusBadge status={s.status} />
                       </div>
@@ -330,9 +330,9 @@ export default function FolderDetailPage() {
                   <button
                     key={ext.id}
                     className={`w-full text-left p-3 border rounded-md hover:bg-muted/50 text-sm ${
-                      selectedExtractorId === ext.id ? "border-primary bg-muted" : ""
+                      selectedSiftId === ext.id ? "border-primary bg-muted" : ""
                     }`}
-                    onClick={() => setSelectedExtractorId(ext.id)}
+                    onClick={() => setSelectedSiftId(ext.id)}
                   >
                     <span className="font-medium">{ext.name}</span>
                     {ext.description && (
@@ -344,7 +344,7 @@ export default function FolderDetailPage() {
             )}
             <Button
               onClick={() => linkMutation.mutate()}
-              disabled={!selectedExtractorId || linkMutation.isPending}
+              disabled={!selectedSiftId || linkMutation.isPending}
               className="w-full"
             >
               {linkMutation.isPending ? "Linking..." : "Link Sift"}

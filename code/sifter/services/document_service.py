@@ -1,6 +1,6 @@
 """
-Document management service: Folders, Documents, FolderExtractor links,
-DocumentExtractionStatus tracking.
+Document management service: Folders, Documents, FolderSift links,
+DocumentSiftStatus tracking.
 """
 import os
 from datetime import datetime, timezone
@@ -15,10 +15,10 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from ..config import config
 from ..models.document import (
     Document,
-    DocumentExtractionStatus,
-    DocumentExtractionStatusEnum,
+    DocumentSiftStatus,
+    DocumentSiftStatusEnum,
     Folder,
-    FolderExtractor,
+    FolderSift,
 )
 
 logger = structlog.get_logger()
@@ -32,13 +32,38 @@ class DocumentService:
         await self.db["folders"].create_index("organization_id")
         await self.db["documents"].create_index([("folder_id", 1), ("filename", 1)], unique=True)
         await self.db["documents"].create_index("organization_id")
+
+        # Drop any stale indexes on folder_extractors (legacy extraction_id or name conflicts)
+        for idx_name in [
+            "folder_id_1_extraction_id_1",
+            "folder_id_sift_id_unique",
+            "folder_id_1_sift_id_1",
+            "folder_sift_unique",
+        ]:
+            try:
+                await self.db["folder_extractors"].drop_index(idx_name)
+            except Exception:
+                pass
+
+        # Drop any stale indexes on document_sift_statuses
+        for idx_name in [
+            "document_id_1_extraction_id_1",
+            "document_id_1_sift_id_1",
+            "document_sift_unique",
+            "document_sift_id_unique",
+        ]:
+            try:
+                await self.db["document_sift_statuses"].drop_index(idx_name)
+            except Exception:
+                pass
+
         await self.db["folder_extractors"].create_index(
-            [("folder_id", 1), ("extraction_id", 1)], unique=True
+            [("folder_id", 1), ("sift_id", 1)], unique=True, name="folder_sift_unique"
         )
-        await self.db["document_extraction_statuses"].create_index(
-            [("document_id", 1), ("extraction_id", 1)], unique=True
+        await self.db["document_sift_statuses"].create_index(
+            [("document_id", 1), ("sift_id", 1)], unique=True, name="document_sift_unique"
         )
-        await self.db["document_extraction_statuses"].create_index("organization_id")
+        await self.db["document_sift_statuses"].create_index("organization_id")
 
     # ---- Folders ----
 
@@ -74,7 +99,7 @@ class DocumentService:
         for doc in docs:
             doc_id = str(doc["_id"])
             await self._delete_document_files(doc)
-            await self.db["document_extraction_statuses"].delete_many({"document_id": doc_id})
+            await self.db["document_sift_statuses"].delete_many({"document_id": doc_id})
         await self.db["documents"].delete_many({"folder_id": folder_id, "organization_id": org_id})
         await self.db["folder_extractors"].delete_many({"folder_id": folder_id})
         result = await self.db["folders"].delete_one(
@@ -82,34 +107,34 @@ class DocumentService:
         )
         return result.deleted_count > 0
 
-    # ---- Folder ↔ Extractor links ----
+    # ---- Folder ↔ Sift links ----
 
-    async def link_extractor(self, folder_id: str, extraction_id: str, org_id: str) -> FolderExtractor:
+    async def link_extractor(self, folder_id: str, sift_id: str, org_id: str) -> FolderSift:
         existing = await self.db["folder_extractors"].find_one(
-            {"folder_id": folder_id, "extraction_id": extraction_id}
+            {"folder_id": folder_id, "sift_id": sift_id}
         )
         if existing:
-            return FolderExtractor.from_mongo(existing)
-        link = FolderExtractor(
+            return FolderSift.from_mongo(existing)
+        link = FolderSift(
             organization_id=org_id,
             folder_id=folder_id,
-            extraction_id=extraction_id,
+            sift_id=sift_id,
         )
         result = await self.db["folder_extractors"].insert_one(link.to_mongo())
         link.id = str(result.inserted_id)
         return link
 
-    async def unlink_extractor(self, folder_id: str, extraction_id: str, org_id: str) -> bool:
+    async def unlink_extractor(self, folder_id: str, sift_id: str, org_id: str) -> bool:
         result = await self.db["folder_extractors"].delete_one(
-            {"folder_id": folder_id, "extraction_id": extraction_id, "organization_id": org_id}
+            {"folder_id": folder_id, "sift_id": sift_id, "organization_id": org_id}
         )
         return result.deleted_count > 0
 
-    async def list_folder_extractors(self, folder_id: str, org_id: str) -> list[FolderExtractor]:
+    async def list_folder_extractors(self, folder_id: str, org_id: str) -> list[FolderSift]:
         docs = await self.db["folder_extractors"].find(
             {"folder_id": folder_id, "organization_id": org_id}
         ).to_list(length=None)
-        return [FolderExtractor.from_mongo(d) for d in docs]
+        return [FolderSift.from_mongo(d) for d in docs]
 
     # ---- Documents ----
 
@@ -155,7 +180,7 @@ class DocumentService:
         return doc
 
     async def list_documents(self, folder_id: str, org_id: str) -> list[dict[str, Any]]:
-        """List documents with per-extractor status for each."""
+        """List documents with per-sift status for each."""
         docs = await self.db["documents"].find(
             {"folder_id": folder_id, "organization_id": org_id}
         ).to_list(length=None)
@@ -163,7 +188,7 @@ class DocumentService:
         result = []
         for doc in docs:
             doc_id = str(doc["_id"])
-            statuses = await self.db["document_extraction_statuses"].find(
+            statuses = await self.db["document_sift_statuses"].find(
                 {"document_id": doc_id}
             ).to_list(length=None)
             result.append({
@@ -174,14 +199,14 @@ class DocumentService:
                 "size_bytes": doc.get("size_bytes", 0),
                 "uploaded_by": doc.get("uploaded_by", ""),
                 "uploaded_at": doc["uploaded_at"].isoformat() if doc.get("uploaded_at") else None,
-                "extraction_statuses": [
+                "sift_statuses": [
                     {
-                        "extraction_id": s["extraction_id"],
+                        "sift_id": s.get("sift_id") or s.get("extraction_id"),
                         "status": s["status"],
                         "started_at": s["started_at"].isoformat() if s.get("started_at") else None,
                         "completed_at": s["completed_at"].isoformat() if s.get("completed_at") else None,
                         "error_message": s.get("error_message"),
-                        "extraction_record_id": s.get("extraction_record_id"),
+                        "sift_record_id": s.get("sift_record_id") or s.get("extraction_record_id"),
                     }
                     for s in statuses
                 ],
@@ -201,7 +226,7 @@ class DocumentService:
         if not doc:
             return False
         await self._delete_document_files(doc)
-        await self.db["document_extraction_statuses"].delete_many({"document_id": document_id})
+        await self.db["document_sift_statuses"].delete_many({"document_id": document_id})
         result = await self.db["documents"].delete_one({"_id": ObjectId(document_id)})
         if result.deleted_count > 0:
             await self.db["folders"].update_one(
@@ -218,46 +243,65 @@ class DocumentService:
             except OSError:
                 pass
 
-    # ---- DocumentExtractionStatus ----
+    # ---- DocumentSiftStatus ----
 
-    async def create_extraction_status(
-        self, document_id: str, extraction_id: str, org_id: str
-    ) -> DocumentExtractionStatus:
-        status = DocumentExtractionStatus(
+    async def create_sift_status(
+        self, document_id: str, sift_id: str, org_id: str
+    ) -> DocumentSiftStatus:
+        status = DocumentSiftStatus(
             organization_id=org_id,
             document_id=document_id,
-            extraction_id=extraction_id,
-            status=DocumentExtractionStatusEnum.PENDING,
+            sift_id=sift_id,
+            status=DocumentSiftStatusEnum.PENDING,
         )
-        result = await self.db["document_extraction_statuses"].insert_one(status.to_mongo())
+        result = await self.db["document_sift_statuses"].insert_one(status.to_mongo())
         status.id = str(result.inserted_id)
         return status
 
-    async def update_extraction_status(
+    # Legacy alias
+    async def create_extraction_status(
+        self, document_id: str, sift_id: str, org_id: str
+    ) -> DocumentSiftStatus:
+        return await self.create_sift_status(document_id, sift_id, org_id)
+
+    async def update_sift_status(
         self,
         document_id: str,
-        extraction_id: str,
-        status: DocumentExtractionStatusEnum,
+        sift_id: str,
+        status: DocumentSiftStatusEnum,
         error_message: Optional[str] = None,
-        extraction_record_id: Optional[str] = None,
+        sift_record_id: Optional[str] = None,
     ) -> None:
         updates: dict = {"status": status}
         now = datetime.now(timezone.utc)
-        if status == DocumentExtractionStatusEnum.PROCESSING:
+        if status == DocumentSiftStatusEnum.PROCESSING:
             updates["started_at"] = now
-        elif status in (DocumentExtractionStatusEnum.DONE, DocumentExtractionStatusEnum.ERROR):
+        elif status in (DocumentSiftStatusEnum.DONE, DocumentSiftStatusEnum.ERROR):
             updates["completed_at"] = now
         if error_message is not None:
             updates["error_message"] = error_message
-        if extraction_record_id is not None:
-            updates["extraction_record_id"] = extraction_record_id
-        await self.db["document_extraction_statuses"].update_one(
-            {"document_id": document_id, "extraction_id": extraction_id},
+        if sift_record_id is not None:
+            updates["sift_record_id"] = sift_record_id
+        await self.db["document_sift_statuses"].update_one(
+            {"document_id": document_id, "sift_id": sift_id},
             {"$set": updates},
         )
 
-    async def get_document_statuses(self, document_id: str) -> list[DocumentExtractionStatus]:
-        docs = await self.db["document_extraction_statuses"].find(
+    # Legacy alias
+    async def update_extraction_status(
+        self,
+        document_id: str,
+        sift_id: str,
+        status: DocumentSiftStatusEnum,
+        error_message: Optional[str] = None,
+        extraction_record_id: Optional[str] = None,
+    ) -> None:
+        return await self.update_sift_status(
+            document_id, sift_id, status, error_message, extraction_record_id
+        )
+
+    async def get_document_statuses(self, document_id: str) -> list[DocumentSiftStatus]:
+        docs = await self.db["document_sift_statuses"].find(
             {"document_id": document_id}
         ).to_list(length=None)
-        return [DocumentExtractionStatus.from_mongo(d) for d in docs]
+        return [DocumentSiftStatus.from_mongo(d) for d in docs]

@@ -1,44 +1,4 @@
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Optional
-from pydantic import BaseModel, Field
-from bson import ObjectId
+# Legacy shim — import from new location
+from .sift import Sift, SiftStatus  # noqa: F401
 
-
-class SiftStatus(str, Enum):
-    ACTIVE = "active"
-    INDEXING = "indexing"
-    PAUSED = "paused"
-    ERROR = "error"
-
-
-class Sift(BaseModel):
-    id: Optional[str] = Field(None, alias="_id")
-    organization_id: Optional[str] = None
-    name: str
-    description: str = ""
-    instructions: str
-    schema: Optional[str] = None
-    status: SiftStatus = SiftStatus.INDEXING
-    error: Optional[str] = None
-    processed_documents: int = 0
-    total_documents: int = 0
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
-
-    def to_mongo(self) -> dict:
-        d = self.model_dump(by_alias=False, exclude={"id"})
-        if self.id:
-            d["_id"] = ObjectId(self.id)
-        return d
-
-    @classmethod
-    def from_mongo(cls, doc: dict) -> "Sift":
-        if doc is None:
-            return None
-        doc = dict(doc)
-        if "_id" in doc:
-            doc["_id"] = str(doc["_id"])
-        return cls(**doc)
+__all__ = ["Sift", "SiftStatus"]

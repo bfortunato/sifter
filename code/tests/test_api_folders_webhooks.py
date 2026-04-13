@@ -42,7 +42,7 @@ async def clean_db(client):
     db = get_db()
     for col in ("sifts", "sift_results", "aggregations",
                 "folders", "documents", "folder_extractors",
-                "document_extraction_statuses", "webhooks"):
+                "document_sift_statuses", "webhooks"):
         await db[col].delete_many({})
     yield
 

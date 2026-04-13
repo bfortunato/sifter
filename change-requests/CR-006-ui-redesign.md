@@ -1,6 +1,6 @@
 ---
 title: "UI Redesign: left sidebar layout + pageindex-style document browser"
-status: pending
+status: applied
 author: "Bruno Fortunato"
 created-at: "2026-04-13T00:00:00.000Z"
 ---

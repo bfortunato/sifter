@@ -47,14 +47,14 @@ async def worker() -> None:
     """
     # Import here to avoid circular imports at module load time
     from .document_service import DocumentService
-    from .extraction_service import ExtractionService
+    from .extraction_service import SiftService
 
     logger.info("document_processor_worker_started")
     while True:
         task: ProcessingTask = await _queue.get()
         db = get_db()
         doc_svc = DocumentService(db)
-        ext_svc = ExtractionService(db)
+        ext_svc = SiftService(db)
 
         logger.info(
             "processing_document",

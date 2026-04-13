@@ -40,7 +40,7 @@ async def client():
 async def clean_db(client):
     from sifter.db import get_db
     db = get_db()
-    for col in ("extractions", "extraction_results", "aggregations",
+    for col in ("sifts", "sift_results", "aggregations",
                 "folders", "documents", "folder_extractors",
                 "document_extraction_statuses", "webhooks"):
         await db[col].delete_many({})
@@ -52,36 +52,36 @@ async def clean_db(client):
 # ───────────────────────────────────────────
 
 async def test_patch_extraction_name(client):
-    r = await client.post("/api/extractions", json={
+    r = await client.post("/api/sifts", json={
         "name": "Old Name",
-        "extraction_instructions": "Extract: x",
+        "instructions": "Extract: x",
     })
     assert r.status_code == 200
     eid = r.json()["id"]
 
-    r2 = await client.patch(f"/api/extractions/{eid}", json={"name": "New Name"})
+    r2 = await client.patch(f"/api/sifts/{eid}", json={"name": "New Name"})
     assert r2.status_code == 200
     assert r2.json()["name"] == "New Name"
-    assert r2.json()["extraction_instructions"] == "Extract: x"  # unchanged
+    assert r2.json()["instructions"] == "Extract: x"  # unchanged
 
 
 async def test_patch_extraction_instructions(client):
-    r = await client.post("/api/extractions", json={
+    r = await client.post("/api/sifts", json={
         "name": "Patchy",
-        "extraction_instructions": "Extract: a",
+        "instructions": "Extract: a",
     })
     eid = r.json()["id"]
 
-    r2 = await client.patch(f"/api/extractions/{eid}", json={
-        "extraction_instructions": "Extract: a, b, c"
+    r2 = await client.patch(f"/api/sifts/{eid}", json={
+        "instructions": "Extract: a, b, c"
     })
     assert r2.status_code == 200
-    assert r2.json()["extraction_instructions"] == "Extract: a, b, c"
+    assert r2.json()["instructions"] == "Extract: a, b, c"
 
 
 async def test_patch_extraction_not_found(client):
     r = await client.patch(
-        "/api/extractions/000000000000000000000000",
+        "/api/sifts/000000000000000000000000",
         json={"name": "Ghost"},
     )
     assert r.status_code == 404
@@ -172,9 +172,9 @@ async def _make_folder(client, name="F"):
 
 
 async def _make_extraction(client, name="E"):
-    r = await client.post("/api/extractions", json={
+    r = await client.post("/api/sifts", json={
         "name": name,
-        "extraction_instructions": "Extract: x",
+        "instructions": "Extract: x",
     })
     return r.json()["id"]
 

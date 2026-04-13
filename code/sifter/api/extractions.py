@@ -12,26 +12,26 @@ from pydantic import BaseModel
 from ..auth import Principal, get_current_principal
 from ..config import config
 from ..db import get_db
-from ..models.extraction import Extraction, ExtractionStatus
-from ..services.extraction_results import ExtractionResultsService
-from ..services.extraction_service import ExtractionService
+from ..models.extraction import Sift, SiftStatus
+from ..services.extraction_results import SiftResultsService
+from ..services.extraction_service import SiftService
 
 logger = structlog.get_logger()
-router = APIRouter(prefix="/api/extractions", tags=["extractions"])
+router = APIRouter(prefix="/api/sifts", tags=["sifts"])
 
 
-class CreateExtractionRequest(BaseModel):
+class CreateSiftRequest(BaseModel):
     name: str
     description: str = ""
-    extraction_instructions: str
-    extraction_schema: Optional[str] = None
+    instructions: str
+    schema: Optional[str] = None
 
 
-class UpdateExtractionRequest(BaseModel):
+class UpdateSiftRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    extraction_instructions: Optional[str] = None
-    extraction_schema: Optional[str] = None
+    instructions: Optional[str] = None
+    schema: Optional[str] = None
 
 
 class QueryRequest(BaseModel):
@@ -44,88 +44,88 @@ class ChatRequest(BaseModel):
 
 
 @router.post("", response_model=dict)
-async def create_extraction(
-    body: CreateExtractionRequest,
+async def create_sift(
+    body: CreateSiftRequest,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
-    svc = ExtractionService(db)
+    svc = SiftService(db)
     await svc.ensure_indexes()
-    extraction = await svc.create(
+    sift = await svc.create(
         name=body.name,
         description=body.description,
-        instructions=body.extraction_instructions,
-        schema=body.extraction_schema,
+        instructions=body.instructions,
+        schema=body.schema,
         org_id=principal.org_id,
     )
-    return _extraction_to_dict(extraction)
+    return _sift_to_dict(sift)
 
 
 @router.get("", response_model=list[dict])
-async def list_extractions(
+async def list_sifts(
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
-    svc = ExtractionService(db)
-    extractions = await svc.list_all(org_id=principal.org_id)
-    return [_extraction_to_dict(e) for e in extractions]
+    svc = SiftService(db)
+    sifts = await svc.list_all(org_id=principal.org_id)
+    return [_sift_to_dict(s) for s in sifts]
 
 
-@router.get("/{extraction_id}", response_model=dict)
-async def get_extraction(
-    extraction_id: str,
+@router.get("/{sift_id}", response_model=dict)
+async def get_sift(
+    sift_id: str,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
-    svc = ExtractionService(db)
-    extraction = await svc.get(extraction_id, org_id=principal.org_id)
-    if not extraction:
-        raise HTTPException(status_code=404, detail="Extraction not found")
-    return _extraction_to_dict(extraction)
+    svc = SiftService(db)
+    sift = await svc.get(sift_id, org_id=principal.org_id)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
+    return _sift_to_dict(sift)
 
 
-@router.patch("/{extraction_id}", response_model=dict)
-async def update_extraction(
-    extraction_id: str,
-    body: UpdateExtractionRequest,
+@router.patch("/{sift_id}", response_model=dict)
+async def update_sift(
+    sift_id: str,
+    body: UpdateSiftRequest,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
-    svc = ExtractionService(db)
+    svc = SiftService(db)
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
-    extraction = await svc.update(extraction_id, updates)
-    if not extraction:
-        raise HTTPException(status_code=404, detail="Extraction not found")
-    return _extraction_to_dict(extraction)
+    sift = await svc.update(sift_id, updates)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
+    return _sift_to_dict(sift)
 
 
-@router.delete("/{extraction_id}")
-async def delete_extraction(
-    extraction_id: str,
+@router.delete("/{sift_id}")
+async def delete_sift(
+    sift_id: str,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
-    svc = ExtractionService(db)
-    deleted = await svc.delete(extraction_id, org_id=principal.org_id)
+    svc = SiftService(db)
+    deleted = await svc.delete(sift_id, org_id=principal.org_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Extraction not found")
+        raise HTTPException(status_code=404, detail="Sift not found")
     return {"deleted": True}
 
 
-@router.post("/{extraction_id}/upload")
+@router.post("/{sift_id}/upload")
 async def upload_documents(
-    extraction_id: str,
+    sift_id: str,
     background_tasks: BackgroundTasks,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
     files: list[UploadFile] = File(...),
 ):
-    svc = ExtractionService(db)
-    extraction = await svc.get(extraction_id, org_id=principal.org_id)
-    if not extraction:
-        raise HTTPException(status_code=404, detail="Extraction not found")
+    svc = SiftService(db)
+    sift = await svc.get(sift_id, org_id=principal.org_id)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
 
-    upload_dir = Path(config.upload_dir) / extraction_id
+    upload_dir = Path(config.upload_dir) / sift_id
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     max_bytes = config.max_file_size_mb * 1024 * 1024
@@ -143,14 +143,14 @@ async def upload_documents(
             await f.write(content)
         saved_paths.append(str(dest))
 
-    background_tasks.add_task(svc.process_documents, extraction_id, saved_paths)
+    background_tasks.add_task(svc.process_documents, sift_id, saved_paths)
 
     return {"uploaded": len(saved_paths), "files": [f.filename for f in files]}
 
 
-@router.post("/{extraction_id}/reindex")
-async def reindex_extraction(
-    extraction_id: str,
+@router.post("/{sift_id}/reindex")
+async def reindex_sift(
+    sift_id: str,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
@@ -158,16 +158,16 @@ async def reindex_extraction(
     from ..services.document_processor import enqueue
     from ..models.document import DocumentExtractionStatusEnum
 
-    svc = ExtractionService(db)
+    svc = SiftService(db)
     doc_svc = DocumentService(db)
 
-    extraction = await svc.get(extraction_id, org_id=principal.org_id)
-    if not extraction:
-        raise HTTPException(status_code=404, detail="Extraction not found")
+    sift = await svc.get(sift_id, org_id=principal.org_id)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
 
-    # Find all documents that were processed by this extraction (folder-based)
+    # Find all documents that were processed by this sift (folder-based)
     statuses = await db["document_extraction_statuses"].find(
-        {"extraction_id": extraction_id, "organization_id": principal.org_id}
+        {"extraction_id": sift_id, "organization_id": principal.org_id}
     ).to_list(length=None)
 
     folder_doc_paths: list[tuple[str, str]] = []  # (document_id, storage_path)
@@ -177,7 +177,7 @@ async def reindex_extraction(
             folder_doc_paths.append((s["document_id"], doc["storage_path"]))
 
     # Also collect directly-uploaded files (legacy path)
-    upload_dir = Path(config.upload_dir) / extraction_id
+    upload_dir = Path(config.upload_dir) / sift_id
     direct_paths = []
     if upload_dir.exists():
         direct_paths = [
@@ -189,135 +189,135 @@ async def reindex_extraction(
         raise HTTPException(status_code=400, detail="No documents found to reindex")
 
     # Clear existing results
-    await svc.results_service.delete_by_extraction_id(extraction_id)
+    await svc.results_service.delete_by_extraction_id(sift_id)
     await svc.update(
-        extraction_id,
+        sift_id,
         {
-            "status": ExtractionStatus.INDEXING,
-            "extraction_schema": None,
+            "status": SiftStatus.INDEXING,
+            "schema": None,
             "processed_documents": 0,
             "total_documents": len(folder_doc_paths) + len(direct_paths),
-            "extraction_error": None,
+            "error": None,
         },
     )
 
     # Re-enqueue folder-based documents through the queue
     for doc_id, storage_path in folder_doc_paths:
         await db["document_extraction_statuses"].update_one(
-            {"document_id": doc_id, "extraction_id": extraction_id},
+            {"document_id": doc_id, "extraction_id": sift_id},
             {"$set": {"status": DocumentExtractionStatusEnum.PENDING, "error_message": None, "extraction_record_id": None}},
         )
-        enqueue(doc_id, extraction_id, storage_path, principal.org_id)
+        enqueue(doc_id, sift_id, storage_path, principal.org_id)
 
     # Re-process direct-uploaded files via background task (old path)
     if direct_paths:
         import asyncio
-        asyncio.create_task(svc.process_documents(extraction_id, direct_paths))
+        asyncio.create_task(svc.process_documents(sift_id, direct_paths))
 
     total = len(folder_doc_paths) + len(direct_paths)
     return {"status": "reindexing", "total": total}
 
 
-@router.post("/{extraction_id}/reset")
-async def reset_extraction(
-    extraction_id: str,
+@router.post("/{sift_id}/reset")
+async def reset_sift(
+    sift_id: str,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
-    svc = ExtractionService(db)
-    extraction = await svc.get(extraction_id, org_id=principal.org_id)
-    if not extraction:
-        raise HTTPException(status_code=404, detail="Extraction not found")
-    result = await svc.reset_error(extraction_id)
-    return _extraction_to_dict(result)
+    svc = SiftService(db)
+    sift = await svc.get(sift_id, org_id=principal.org_id)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
+    result = await svc.reset_error(sift_id)
+    return _sift_to_dict(result)
 
 
-@router.get("/{extraction_id}/records")
+@router.get("/{sift_id}/records")
 async def get_records(
-    extraction_id: str,
+    sift_id: str,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
-    svc = ExtractionService(db)
-    extraction = await svc.get(extraction_id, org_id=principal.org_id)
-    if not extraction:
-        raise HTTPException(status_code=404, detail="Extraction not found")
-    return await svc.get_records(extraction_id, org_id=principal.org_id)
+    svc = SiftService(db)
+    sift = await svc.get(sift_id, org_id=principal.org_id)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
+    return await svc.get_records(sift_id, org_id=principal.org_id)
 
 
-@router.get("/{extraction_id}/records/csv")
+@router.get("/{sift_id}/records/csv")
 async def export_csv(
-    extraction_id: str,
+    sift_id: str,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
-    svc = ExtractionService(db)
-    extraction = await svc.get(extraction_id, org_id=principal.org_id)
-    if not extraction:
-        raise HTTPException(status_code=404, detail="Extraction not found")
+    svc = SiftService(db)
+    sift = await svc.get(sift_id, org_id=principal.org_id)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
 
-    results_svc = ExtractionResultsService(db)
-    csv_content = await results_svc.export_csv(extraction_id, org_id=principal.org_id)
+    results_svc = SiftResultsService(db)
+    csv_content = await results_svc.export_csv(sift_id, org_id=principal.org_id)
 
     return Response(
         content=csv_content,
         media_type="text/csv",
         headers={
-            "Content-Disposition": f'attachment; filename="{extraction.name}.csv"',
+            "Content-Disposition": f'attachment; filename="{sift.name}.csv"',
         },
     )
 
 
-@router.post("/{extraction_id}/query")
-async def query_extraction(
-    extraction_id: str,
+@router.post("/{sift_id}/query")
+async def query_sift(
+    sift_id: str,
     body: QueryRequest,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
-    svc = ExtractionService(db)
-    extraction = await svc.get(extraction_id, org_id=principal.org_id)
-    if not extraction:
-        raise HTTPException(status_code=404, detail="Extraction not found")
+    svc = SiftService(db)
+    sift = await svc.get(sift_id, org_id=principal.org_id)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
 
     from ..services.aggregation_service import AggregationService
 
     agg_svc = AggregationService(db)
     try:
         results, pipeline = await agg_svc.live_query(
-            extraction_id, body.query, org_id=principal.org_id
+            sift_id, body.query, org_id=principal.org_id
         )
     except Exception as e:
-        logger.error("live_query_error", extraction_id=extraction_id, error=str(e))
+        logger.error("live_query_error", sift_id=sift_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"results": results, "pipeline": pipeline}
 
 
-@router.post("/{extraction_id}/chat")
-async def extraction_chat(
-    extraction_id: str,
+@router.post("/{sift_id}/chat")
+async def sift_chat(
+    sift_id: str,
     body: ChatRequest,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     from ..services.qa_agent import chat as qa_chat
 
-    svc = ExtractionService(db)
-    extraction = await svc.get(extraction_id, org_id=principal.org_id)
-    if not extraction:
-        raise HTTPException(status_code=404, detail="Extraction not found")
+    svc = SiftService(db)
+    sift = await svc.get(sift_id, org_id=principal.org_id)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
 
     try:
         result = await qa_chat(
-            extraction_id=extraction_id,
+            extraction_id=sift_id,
             message=body.message,
             history=body.history,
             org_id=principal.org_id,
             db=db,
         )
     except Exception as e:
-        logger.error("extraction_chat_error", extraction_id=extraction_id, error=str(e))
+        logger.error("sift_chat_error", sift_id=sift_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
     return {
@@ -327,18 +327,18 @@ async def extraction_chat(
     }
 
 
-def _extraction_to_dict(e: Extraction) -> dict:
+def _sift_to_dict(s: Sift) -> dict:
     return {
-        "id": e.id,
-        "organization_id": e.organization_id,
-        "name": e.name,
-        "description": e.description,
-        "extraction_instructions": e.extraction_instructions,
-        "extraction_schema": e.extraction_schema,
-        "status": e.status,
-        "extraction_error": e.extraction_error,
-        "processed_documents": e.processed_documents,
-        "total_documents": e.total_documents,
-        "created_at": e.created_at.isoformat(),
-        "updated_at": e.updated_at.isoformat(),
+        "id": s.id,
+        "organization_id": s.organization_id,
+        "name": s.name,
+        "description": s.description,
+        "instructions": s.instructions,
+        "schema": s.schema,
+        "status": s.status,
+        "error": s.error,
+        "processed_documents": s.processed_documents,
+        "total_documents": s.total_documents,
+        "created_at": s.created_at.isoformat(),
+        "updated_at": s.updated_at.isoformat(),
     }

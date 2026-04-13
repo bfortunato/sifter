@@ -9,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ..models.aggregation import Aggregation, AggregationStatus
 from . import pipeline_agent
-from .extraction_results import ExtractionResultsService
+from .extraction_results import SiftResultsService
 
 logger = structlog.get_logger()
 
@@ -20,7 +20,7 @@ class AggregationService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
         self.col = db[COLLECTION]
-        self.results_service = ExtractionResultsService(db)
+        self.results_service = SiftResultsService(db)
 
     async def ensure_indexes(self):
         await self.col.create_index("extraction_id", name="extraction_id_idx")

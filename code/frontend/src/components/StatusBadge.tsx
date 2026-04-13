@@ -1,9 +1,9 @@
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { ExtractionStatus } from "@/api/types";
+import type { SiftStatus } from "@/api/types";
 
 const STATUS_CONFIG: Record<
-  ExtractionStatus,
+  SiftStatus,
   { label: string; variant: "success" | "warning" | "destructive" | "secondary" | "outline" }
 > = {
   active: { label: "Active", variant: "success" },
@@ -13,7 +13,7 @@ const STATUS_CONFIG: Record<
 };
 
 interface StatusBadgeProps {
-  status: ExtractionStatus;
+  status: SiftStatus;
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {

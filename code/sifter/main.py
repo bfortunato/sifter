@@ -15,7 +15,7 @@ from .services.aggregation_service import AggregationService
 from .services.auth_service import AuthService
 from .services.document_processor import start_workers
 from .services.document_service import DocumentService
-from .services.extraction_service import ExtractionService
+from .services.extraction_service import SiftService
 from .services.webhook_service import WebhookService
 
 structlog.configure(
@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(config.storage_path, exist_ok=True)
 
     db = get_db()
-    await ExtractionService(db).ensure_indexes()
+    await SiftService(db).ensure_indexes()
     await AggregationService(db).ensure_indexes()
     await AuthService(db).ensure_indexes()
     await DocumentService(db).ensure_indexes()

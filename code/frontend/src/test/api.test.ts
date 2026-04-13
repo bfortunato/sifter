@@ -5,12 +5,12 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  fetchExtractions,
-  fetchExtraction,
-  createExtraction,
-  deleteExtraction,
-  fetchExtractionRecords,
-  queryExtraction,
+  fetchSifts,
+  fetchSift,
+  createSift,
+  deleteSift,
+  fetchSiftRecords,
+  querySift,
 } from "../api/extractions";
 import {
   fetchAggregations,
@@ -35,72 +35,72 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-// ---- Extractions ----
+// ---- Sifts ----
 
-describe("fetchExtractions", () => {
-  it("returns list of extractions", async () => {
+describe("fetchSifts", () => {
+  it("returns list of sifts", async () => {
     const data = [
       { id: "1", name: "Invoices", status: "active", processed_documents: 5 },
     ];
     vi.stubGlobal("fetch", mockFetch(200, data));
-    const result = await fetchExtractions();
+    const result = await fetchSifts();
     expect(result).toEqual(data);
-    expect(fetch).toHaveBeenCalledWith("/api/extractions");
+    expect(fetch).toHaveBeenCalledWith("/api/sifts");
   });
 
   it("throws on error response", async () => {
     vi.stubGlobal("fetch", mockFetch(500, { detail: "Server error" }));
-    await expect(fetchExtractions()).rejects.toThrow();
+    await expect(fetchSifts()).rejects.toThrow();
   });
 });
 
-describe("fetchExtraction", () => {
-  it("fetches a single extraction by id", async () => {
+describe("fetchSift", () => {
+  it("fetches a single sift by id", async () => {
     const data = { id: "abc123", name: "Test", status: "active" };
     vi.stubGlobal("fetch", mockFetch(200, data));
-    const result = await fetchExtraction("abc123");
+    const result = await fetchSift("abc123");
     expect(result).toEqual(data);
-    expect(fetch).toHaveBeenCalledWith("/api/extractions/abc123");
+    expect(fetch).toHaveBeenCalledWith("/api/sifts/abc123");
   });
 
   it("throws on 404", async () => {
     vi.stubGlobal("fetch", mockFetch(404, { detail: "Not found" }));
-    await expect(fetchExtraction("missing")).rejects.toThrow();
+    await expect(fetchSift("missing")).rejects.toThrow();
   });
 });
 
-describe("createExtraction", () => {
-  it("posts to /api/extractions with correct body", async () => {
+describe("createSift", () => {
+  it("posts to /api/sifts with correct body", async () => {
     const created = { id: "new1", name: "New", status: "active" };
     vi.stubGlobal("fetch", mockFetch(200, created));
 
-    const result = await createExtraction({
+    const result = await createSift({
       name: "New",
-      extraction_instructions: "Extract: client",
+      instructions: "Extract: client",
     });
 
     expect(result).toEqual(created);
     expect(fetch).toHaveBeenCalledWith(
-      "/api/extractions",
+      "/api/sifts",
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "New", extraction_instructions: "Extract: client" }),
+        body: JSON.stringify({ name: "New", instructions: "Extract: client" }),
       })
     );
   });
 });
 
-describe("deleteExtraction", () => {
+describe("deleteSift", () => {
   it("sends DELETE request", async () => {
     vi.stubGlobal("fetch", mockFetch(200, { deleted: true }));
-    await deleteExtraction("abc");
-    expect(fetch).toHaveBeenCalledWith("/api/extractions/abc", { method: "DELETE" });
+    await deleteSift("abc");
+    expect(fetch).toHaveBeenCalledWith("/api/sifts/abc", { method: "DELETE" });
   });
 });
 
-describe("fetchExtractionRecords", () => {
-  it("fetches records for an extraction", async () => {
+describe("fetchSiftRecords", () => {
+  it("fetches records for a sift", async () => {
     const records = [
       {
         id: "r1",
@@ -112,13 +112,13 @@ describe("fetchExtractionRecords", () => {
       },
     ];
     vi.stubGlobal("fetch", mockFetch(200, records));
-    const result = await fetchExtractionRecords("ext1");
+    const result = await fetchSiftRecords("ext1");
     expect(result).toEqual(records);
-    expect(fetch).toHaveBeenCalledWith("/api/extractions/ext1/records");
+    expect(fetch).toHaveBeenCalledWith("/api/sifts/ext1/records");
   });
 });
 
-describe("queryExtraction", () => {
+describe("querySift", () => {
   it("posts a natural language query", async () => {
     const response = {
       results: [{ _id: "Acme", total: 1500 }],
@@ -126,10 +126,10 @@ describe("queryExtraction", () => {
     };
     vi.stubGlobal("fetch", mockFetch(200, response));
 
-    const result = await queryExtraction("ext1", "Total by client");
+    const result = await querySift("ext1", "Total by client");
     expect(result.results).toEqual([{ _id: "Acme", total: 1500 }]);
     expect(fetch).toHaveBeenCalledWith(
-      "/api/extractions/ext1/query",
+      "/api/sifts/ext1/query",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ query: "Total by client" }),

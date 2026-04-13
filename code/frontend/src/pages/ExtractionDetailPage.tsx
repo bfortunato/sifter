@@ -36,14 +36,14 @@ import {
   useAggregations,
   useCreateAggregation,
   useDeleteAggregation,
-  useDeleteExtraction,
+  useDeleteSift,
   useExportCsv,
-  useExtraction,
-  useExtractionRecords,
-  useReindexExtraction,
+  useSift,
+  useSiftRecords,
+  useReindexSift,
   useRegenerateAggregation,
   useRunAggregation,
-  useUpdateExtraction,
+  useUpdateSift,
   useUploadDocuments,
 } from "@/hooks/useExtractions";
 import type { Aggregation, AggregationResult } from "@/api/types";
@@ -263,20 +263,20 @@ export function ExtractionDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState("");
   const [editInstructions, setEditInstructions] = useState("");
-  const updateMutation = useUpdateExtraction(id!);
+  const updateMutation = useUpdateSift(id!);
 
   const isIndexing = (status: string) => status === "indexing";
 
-  const { data: extraction, isLoading, error } = useExtraction(id!);
+  const { data: extraction, isLoading, error } = useSift(id!);
 
-  useExtraction(id!, {
+  useSift(id!, {
     refetchInterval: extraction && isIndexing(extraction.status) ? 2000 : false,
   });
 
-  const { data: records, isLoading: recordsLoading } = useExtractionRecords(id!);
+  const { data: records, isLoading: recordsLoading } = useSiftRecords(id!);
   const uploadMutation = useUploadDocuments(id!);
-  const reindexMutation = useReindexExtraction(id!);
-  const deleteMutation = useDeleteExtraction();
+  const reindexMutation = useReindexSift(id!);
+  const deleteMutation = useDeleteSift();
   const exportMutation = useExportCsv();
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -295,13 +295,13 @@ export function ExtractionDetailPage() {
 
   const handleEditOpen = () => {
     setEditName(extraction?.name ?? "");
-    setEditInstructions(extraction?.extraction_instructions ?? "");
+    setEditInstructions(extraction?.instructions ?? "");
     setShowEdit(true);
   };
 
   const handleEditSave = () => {
     updateMutation.mutate(
-      { name: editName, extraction_instructions: editInstructions },
+      { name: editName, instructions: editInstructions },
       { onSuccess: () => setShowEdit(false) }
     );
   };
@@ -321,7 +321,7 @@ export function ExtractionDetailPage() {
       <div className="container py-8 max-w-5xl">
         <Alert variant="destructive">
           <AlertDescription>
-            {error ? (error as Error).message : "Extraction not found"}
+            {error ? (error as Error).message : "Sift not found"}
           </AlertDescription>
         </Alert>
       </div>
@@ -357,22 +357,22 @@ export function ExtractionDetailPage() {
       {/* Info card */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Extraction Details</CardTitle>
+          <CardTitle className="text-base">Sift Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div>
             <span className="font-medium text-muted-foreground">Instructions: </span>
-            {extraction.extraction_instructions}
+            {extraction.instructions}
           </div>
-          {extraction.extraction_schema && (
+          {extraction.schema && (
             <div>
               <span className="font-medium text-muted-foreground">Inferred Schema: </span>
-              <code className="text-xs bg-muted px-1 py-0.5 rounded">{extraction.extraction_schema}</code>
+              <code className="text-xs bg-muted px-1 py-0.5 rounded">{extraction.schema}</code>
             </div>
           )}
-          {extraction.extraction_error && (
+          {extraction.error && (
             <Alert variant="destructive">
-              <AlertDescription>{extraction.extraction_error}</AlertDescription>
+              <AlertDescription>{extraction.error}</AlertDescription>
             </Alert>
           )}
           {isIndexing(extraction.status) && extraction.total_documents > 0 && (
@@ -431,7 +431,7 @@ export function ExtractionDetailPage() {
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Extraction</DialogTitle>
+            <DialogTitle>Edit Sift</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

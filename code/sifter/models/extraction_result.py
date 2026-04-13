@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from bson import ObjectId
 
 
-class ExtractionResult(BaseModel):
+class SiftResult(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     organization_id: Optional[str] = None
     extraction_id: str
@@ -23,7 +23,7 @@ class ExtractionResult(BaseModel):
         return d
 
     @classmethod
-    def from_mongo(cls, doc: dict) -> "ExtractionResult":
+    def from_mongo(cls, doc: dict) -> "SiftResult":
         if doc is None:
             return None
         doc = dict(doc)

@@ -5,22 +5,22 @@ from pydantic import BaseModel, Field
 from bson import ObjectId
 
 
-class ExtractionStatus(str, Enum):
+class SiftStatus(str, Enum):
     ACTIVE = "active"
     INDEXING = "indexing"
     PAUSED = "paused"
     ERROR = "error"
 
 
-class Extraction(BaseModel):
+class Sift(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     organization_id: Optional[str] = None
     name: str
     description: str = ""
-    extraction_instructions: str
-    extraction_schema: Optional[str] = None
-    status: ExtractionStatus = ExtractionStatus.INDEXING
-    extraction_error: Optional[str] = None
+    instructions: str
+    schema: Optional[str] = None
+    status: SiftStatus = SiftStatus.INDEXING
+    error: Optional[str] = None
     processed_documents: int = 0
     total_documents: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -35,7 +35,7 @@ class Extraction(BaseModel):
         return d
 
     @classmethod
-    def from_mongo(cls, doc: dict) -> "Extraction":
+    def from_mongo(cls, doc: dict) -> "Sift":
         if doc is None:
             return None
         doc = dict(doc)

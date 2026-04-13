@@ -1,16 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  chatWithExtraction,
-  createExtraction,
-  deleteExtraction,
-  exportExtractionCsv,
-  fetchExtraction,
-  fetchExtractionRecords,
-  fetchExtractions,
-  queryExtraction,
-  reindexExtraction,
-  resetExtraction,
-  updateExtraction,
+  chatWithSift,
+  createSift,
+  deleteSift,
+  exportSiftCsv,
+  fetchSift,
+  fetchSiftRecords,
+  fetchSifts,
+  querySift,
+  reindexSift,
+  resetSift,
+  updateSift,
   uploadDocuments,
 } from "@/api/extractions";
 import {
@@ -20,134 +20,146 @@ import {
   fetchAggregations,
   regenerateAggregation,
 } from "@/api/aggregations";
-import type { ChatMessage, CreateAggregationPayload, CreateExtractionPayload } from "@/api/types";
+import type { ChatMessage, CreateAggregationPayload, CreateSiftPayload } from "@/api/types";
 
-export const useExtractions = () =>
-  useQuery({ queryKey: ["extractions"], queryFn: fetchExtractions });
+export const useSifts = () =>
+  useQuery({ queryKey: ["sifts"], queryFn: fetchSifts });
 
-export const useExtraction = (id: string, options?: { refetchInterval?: number | false }) =>
+export const useSift = (id: string, options?: { refetchInterval?: number | false }) =>
   useQuery({
-    queryKey: ["extraction", id],
-    queryFn: () => fetchExtraction(id),
+    queryKey: ["sift", id],
+    queryFn: () => fetchSift(id),
     refetchInterval: options?.refetchInterval,
   });
 
-export const useExtractionRecords = (id: string) =>
+export const useSiftRecords = (id: string) =>
   useQuery({
-    queryKey: ["extraction-records", id],
-    queryFn: () => fetchExtractionRecords(id),
+    queryKey: ["sift-records", id],
+    queryFn: () => fetchSiftRecords(id),
   });
 
-export const useCreateExtraction = () => {
+export const useCreateSift = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreateExtractionPayload) => createExtraction(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["extractions"] }),
+    mutationFn: (payload: CreateSiftPayload) => createSift(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sifts"] }),
   });
 };
 
-export const useUpdateExtraction = (id: string) => {
+export const useUpdateSift = (id: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { name?: string; extraction_instructions?: string; description?: string }) =>
-      updateExtraction(id, payload),
+    mutationFn: (payload: { name?: string; instructions?: string; description?: string }) =>
+      updateSift(id, payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["extraction", id] });
-      qc.invalidateQueries({ queryKey: ["extractions"] });
+      qc.invalidateQueries({ queryKey: ["sift", id] });
+      qc.invalidateQueries({ queryKey: ["sifts"] });
     },
   });
 };
 
-export const useDeleteExtraction = () => {
+export const useDeleteSift = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => deleteExtraction(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["extractions"] }),
+    mutationFn: (id: string) => deleteSift(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sifts"] }),
   });
 };
 
-export const useUploadDocuments = (extractionId: string) => {
+export const useUploadDocuments = (siftId: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (formData: FormData) => uploadDocuments(extractionId, formData),
+    mutationFn: (formData: FormData) => uploadDocuments(siftId, formData),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["extraction", extractionId] });
-      qc.invalidateQueries({ queryKey: ["extraction-records", extractionId] });
+      qc.invalidateQueries({ queryKey: ["sift", siftId] });
+      qc.invalidateQueries({ queryKey: ["sift-records", siftId] });
     },
   });
 };
 
-export const useReindexExtraction = (extractionId: string) => {
+export const useReindexSift = (siftId: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => reindexExtraction(extractionId),
+    mutationFn: () => reindexSift(siftId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["extraction", extractionId] });
-      qc.invalidateQueries({ queryKey: ["extraction-records", extractionId] });
+      qc.invalidateQueries({ queryKey: ["sift", siftId] });
+      qc.invalidateQueries({ queryKey: ["sift-records", siftId] });
     },
   });
 };
 
-export const useResetExtraction = (extractionId: string) => {
+export const useResetSift = (siftId: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => resetExtraction(extractionId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["extraction", extractionId] }),
+    mutationFn: () => resetSift(siftId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sift", siftId] }),
   });
 };
 
-export const useQueryExtraction = () =>
+export const useQuerySift = () =>
   useMutation({
-    mutationFn: ({ id, query }: { id: string; query: string }) => queryExtraction(id, query),
+    mutationFn: ({ id, query }: { id: string; query: string }) => querySift(id, query),
   });
 
 export const useExportCsv = () =>
   useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => exportExtractionCsv(id, name),
+    mutationFn: ({ id, name }: { id: string; name: string }) => exportSiftCsv(id, name),
   });
 
-export const useExtractionChat = (extractionId: string) =>
+export const useSiftChat = (siftId: string) =>
   useMutation({
     mutationFn: ({ message, history }: { message: string; history: ChatMessage[] }) =>
-      chatWithExtraction(extractionId, message, history),
+      chatWithSift(siftId, message, history),
   });
 
-export const useAggregations = (extractionId: string, options?: { refetchInterval?: number | false | ((query: any) => number | false) }) =>
+export const useAggregations = (siftId: string, options?: { refetchInterval?: number | false | ((query: any) => number | false) }) =>
   useQuery({
-    queryKey: ["aggregations", extractionId],
-    queryFn: () => fetchAggregations(extractionId),
+    queryKey: ["aggregations", siftId],
+    queryFn: () => fetchAggregations(siftId),
     refetchInterval: options?.refetchInterval,
-    enabled: !!extractionId,
+    enabled: !!siftId,
   });
 
-export const useCreateAggregation = (extractionId: string) => {
+export const useCreateAggregation = (siftId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateAggregationPayload) => createAggregation(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", extractionId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", siftId] }),
   });
 };
 
-export const useRunAggregation = (extractionId: string) => {
+export const useRunAggregation = (siftId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (aggId: string) => fetchAggregationResult(aggId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", extractionId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", siftId] }),
   });
 };
 
-export const useRegenerateAggregation = (extractionId: string) => {
+export const useRegenerateAggregation = (siftId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (aggId: string) => regenerateAggregation(aggId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", extractionId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", siftId] }),
   });
 };
 
-export const useDeleteAggregation = (extractionId: string) => {
+export const useDeleteAggregation = (siftId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (aggId: string) => deleteAggregation(aggId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", extractionId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["aggregations", siftId] }),
   });
 };
+
+// Legacy aliases — keep for any remaining consumers
+export const useExtractions = useSifts;
+export const useExtraction = useSift;
+export const useExtractionRecords = useSiftRecords;
+export const useCreateExtraction = useCreateSift;
+export const useUpdateExtraction = useUpdateSift;
+export const useDeleteExtraction = useDeleteSift;
+export const useReindexExtraction = useReindexSift;
+export const useResetExtraction = useResetSift;
+export const useQueryExtraction = useQuerySift;
+export const useExtractionChat = useSiftChat;

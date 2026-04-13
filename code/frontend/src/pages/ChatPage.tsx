@@ -2,11 +2,11 @@ import { useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChatInterface } from "@/components/ChatInterface";
-import { useExtractions } from "@/hooks/useExtractions";
+import { useSifts } from "@/hooks/useExtractions";
 
 export function ChatPage() {
   const [selectedExtractionId, setSelectedExtractionId] = useState<string | undefined>();
-  const { data: extractions } = useExtractions();
+  const { data: extractions } = useSifts();
 
   return (
     <div className="container py-8 max-w-3xl">

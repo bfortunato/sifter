@@ -17,7 +17,7 @@ import {
   updateFolder,
   uploadDocument,
 } from "../api/folders";
-import { fetchExtractions } from "../api/extractions";
+import { fetchSifts } from "../api/extractions";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Skeleton } from "../components/ui/skeleton";
@@ -86,8 +86,8 @@ export default function FolderDetailPage() {
   });
 
   const { data: allExtractions = [] } = useQuery({
-    queryKey: ["extractions"],
-    queryFn: fetchExtractions,
+    queryKey: ["sifts"],
+    queryFn: fetchSifts,
   });
 
   const renameMutation = useMutation({

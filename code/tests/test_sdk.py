@@ -56,8 +56,8 @@ def make_client(api_key="sk-test"):
 
 @respx.mock
 def test_create_sift():
-    payload = {"id": "abc123", "name": "Invoices", "extraction_instructions": "Extract: x", "status": "active"}
-    respx.post(f"{BASE}/api/extractions").mock(return_value=httpx.Response(200, json=payload))
+    payload = {"id": "abc123", "name": "Invoices", "instructions": "Extract: x", "status": "active"}
+    respx.post(f"{BASE}/api/sifts").mock(return_value=httpx.Response(200, json=payload))
 
     s = make_client()
     sift = s.create_sift("Invoices", "Extract: x")
@@ -70,8 +70,8 @@ def test_create_sift():
 
 @respx.mock
 def test_get_sift():
-    payload = {"id": "abc123", "name": "Invoices", "extraction_instructions": "Extract: x", "status": "active"}
-    respx.get(f"{BASE}/api/extractions/abc123").mock(return_value=httpx.Response(200, json=payload))
+    payload = {"id": "abc123", "name": "Invoices", "instructions": "Extract: x", "status": "active"}
+    respx.get(f"{BASE}/api/sifts/abc123").mock(return_value=httpx.Response(200, json=payload))
 
     s = make_client()
     sift = s.get_sift("abc123")
@@ -81,7 +81,7 @@ def test_get_sift():
 @respx.mock
 def test_list_sifts():
     payload = [{"id": "1"}, {"id": "2"}]
-    respx.get(f"{BASE}/api/extractions").mock(return_value=httpx.Response(200, json=payload))
+    respx.get(f"{BASE}/api/sifts").mock(return_value=httpx.Response(200, json=payload))
 
     s = make_client()
     sifts = s.list_sifts()
@@ -90,18 +90,18 @@ def test_list_sifts():
 
 @respx.mock
 def test_sift_update():
-    payload = {"id": "x1", "name": "New", "extraction_instructions": "Extract: y", "status": "active"}
-    respx.patch(f"{BASE}/api/extractions/x1").mock(return_value=httpx.Response(200, json=payload))
+    payload = {"id": "x1", "name": "New", "instructions": "Extract: y", "status": "active"}
+    respx.patch(f"{BASE}/api/sifts/x1").mock(return_value=httpx.Response(200, json=payload))
 
     s = make_client()
-    handle = SiftHandle({"id": "x1", "name": "Old", "extraction_instructions": "Extract: x", "status": "active"}, s)
+    handle = SiftHandle({"id": "x1", "name": "Old", "instructions": "Extract: x", "status": "active"}, s)
     handle.update(name="New", instructions="Extract: y")
     assert handle.name == "New"
 
 
 @respx.mock
 def test_sift_delete():
-    respx.delete(f"{BASE}/api/extractions/x1").mock(return_value=httpx.Response(204))
+    respx.delete(f"{BASE}/api/sifts/x1").mock(return_value=httpx.Response(204))
 
     s = make_client()
     handle = SiftHandle({"id": "x1"}, s)
@@ -111,7 +111,7 @@ def test_sift_delete():
 @respx.mock
 def test_sift_records():
     records = [{"client": "Acme"}, {"client": "Globex"}]
-    respx.get(f"{BASE}/api/extractions/x1/records").mock(return_value=httpx.Response(200, json=records))
+    respx.get(f"{BASE}/api/sifts/x1/records").mock(return_value=httpx.Response(200, json=records))
 
     s = make_client()
     handle = SiftHandle({"id": "x1"}, s)
@@ -121,7 +121,7 @@ def test_sift_records():
 
 @respx.mock
 def test_sift_query():
-    respx.post(f"{BASE}/api/extractions/x1/query").mock(
+    respx.post(f"{BASE}/api/sifts/x1/query").mock(
         return_value=httpx.Response(200, json={"results": [{"total": 999}]})
     )
 
@@ -133,7 +133,7 @@ def test_sift_query():
 
 @respx.mock
 def test_sift_export_csv(tmp_path):
-    respx.get(f"{BASE}/api/extractions/x1/records/csv").mock(
+    respx.get(f"{BASE}/api/sifts/x1/records/csv").mock(
         return_value=httpx.Response(200, text="client,amount\nAcme,100\n")
     )
 
@@ -148,11 +148,11 @@ def test_sift_export_csv(tmp_path):
 def test_sift_wait_completes():
     # First poll: indexing; second poll: active
     responses = [
-        httpx.Response(200, json={"id": "x1", "status": "indexing", "extraction_error": None}),
-        httpx.Response(200, json={"id": "x1", "status": "active", "extraction_error": None}),
+        httpx.Response(200, json={"id": "x1", "status": "indexing", "error": None}),
+        httpx.Response(200, json={"id": "x1", "status": "active", "error": None}),
     ]
-    respx.get(f"{BASE}/api/extractions/x1").mock(side_effect=responses)
-    respx.get(f"{BASE}/api/extractions/x1/records").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(f"{BASE}/api/sifts/x1").mock(side_effect=responses)
+    respx.get(f"{BASE}/api/sifts/x1/records").mock(return_value=httpx.Response(200, json=[]))
 
     s = make_client()
     handle = SiftHandle({"id": "x1", "status": "indexing"}, s)
@@ -169,8 +169,8 @@ def test_sift_on_callback_fires():
     ]
     records_payload = [{"id": "doc1", "document_id": "doc1", "client": "Acme"}]
 
-    respx.get(f"{BASE}/api/extractions/x1").mock(side_effect=responses)
-    respx.get(f"{BASE}/api/extractions/x1/records").mock(
+    respx.get(f"{BASE}/api/sifts/x1").mock(side_effect=responses)
+    respx.get(f"{BASE}/api/sifts/x1/records").mock(
         return_value=httpx.Response(200, json=records_payload)
     )
 
@@ -187,16 +187,16 @@ def test_sift_on_callback_fires():
 
 @respx.mock
 def test_one_liner_sift(tmp_path):
-    creation = {"id": "tmp1", "name": "sift-temp", "extraction_instructions": "Extract: x", "status": "active"}
-    respx.post(f"{BASE}/api/extractions").mock(return_value=httpx.Response(200, json=creation))
-    respx.post(f"{BASE}/api/extractions/tmp1/upload").mock(return_value=httpx.Response(200, json={}))
-    respx.get(f"{BASE}/api/extractions/tmp1").mock(
+    creation = {"id": "tmp1", "name": "sift-temp", "instructions": "Extract: x", "status": "active"}
+    respx.post(f"{BASE}/api/sifts").mock(return_value=httpx.Response(200, json=creation))
+    respx.post(f"{BASE}/api/sifts/tmp1/upload").mock(return_value=httpx.Response(200, json={}))
+    respx.get(f"{BASE}/api/sifts/tmp1").mock(
         return_value=httpx.Response(200, json={"id": "tmp1", "status": "active"})
     )
-    respx.get(f"{BASE}/api/extractions/tmp1/records").mock(
+    respx.get(f"{BASE}/api/sifts/tmp1/records").mock(
         return_value=httpx.Response(200, json=[{"client": "X"}])
     )
-    respx.delete(f"{BASE}/api/extractions/tmp1").mock(return_value=httpx.Response(204))
+    respx.delete(f"{BASE}/api/sifts/tmp1").mock(return_value=httpx.Response(204))
 
     # Create a temp file to upload
     f = tmp_path / "doc.txt"
@@ -372,7 +372,7 @@ def test_delete_hook():
 @respx.mock
 def test_sdk_sends_api_key_header():
     """Ensure X-API-Key is sent on every request."""
-    route = respx.get(f"{BASE}/api/extractions").mock(return_value=httpx.Response(200, json=[]))
+    route = respx.get(f"{BASE}/api/sifts").mock(return_value=httpx.Response(200, json=[]))
 
     s = Sifter(api_url=BASE, api_key="sk-secret")
     s.list_sifts()

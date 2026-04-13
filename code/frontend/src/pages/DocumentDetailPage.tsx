@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, RefreshCw } from "lucide-react";
 import { fetchDocument, reprocessDocument } from "../api/folders";
-import { fetchExtractions } from "../api/extractions";
+import { fetchSifts } from "../api/extractions";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
@@ -41,8 +41,8 @@ export default function DocumentDetailPage() {
   });
 
   const { data: extractions = [] } = useQuery({
-    queryKey: ["extractions"],
-    queryFn: fetchExtractions,
+    queryKey: ["sifts"],
+    queryFn: fetchSifts,
   });
 
   const reprocessMutation = useMutation({

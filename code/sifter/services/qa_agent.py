@@ -13,8 +13,8 @@ import structlog
 
 from ..config import config
 from .aggregation_service import AggregationService
-from .extraction_results import ExtractionResultsService
-from .extraction_service import ExtractionService
+from .extraction_results import SiftResultsService
+from .extraction_service import SiftService
 
 logger = structlog.get_logger()
 
@@ -43,8 +43,8 @@ async def chat(
     """
     Main Q&A entrypoint. Accepts optional extraction_id for schema-aware mode.
     """
-    extraction_svc = ExtractionService(db)
-    results_svc = ExtractionResultsService(db)
+    extraction_svc = SiftService(db)
+    results_svc = SiftResultsService(db)
     agg_svc = AggregationService(db)
 
     # Build system prompt with extraction context
@@ -112,8 +112,8 @@ async def chat(
 def _build_extraction_context(extraction, sample_records: list[dict]) -> str:
     lines = [
         f"Name: {extraction.name}",
-        f"Instructions: {extraction.extraction_instructions}",
-        f"Schema: {extraction.extraction_schema or 'not yet inferred'}",
+        f"Instructions: {extraction.instructions}",
+        f"Schema: {extraction.schema or 'not yet inferred'}",
         f"Documents processed: {extraction.processed_documents}",
     ]
     if sample_records:

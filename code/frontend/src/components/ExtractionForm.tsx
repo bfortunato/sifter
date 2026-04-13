@@ -12,8 +12,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useCreateExtraction } from "@/hooks/useExtractions";
-import type { CreateExtractionPayload } from "@/api/types";
+import { useCreateSift } from "@/hooks/useExtractions";
+import type { CreateSiftPayload } from "@/api/types";
 
 interface ExtractionFormProps {
   trigger: React.ReactNode;
@@ -22,21 +22,21 @@ interface ExtractionFormProps {
 
 export function ExtractionForm({ trigger, onCreated }: ExtractionFormProps) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<CreateExtractionPayload>({
+  const [form, setForm] = useState<CreateSiftPayload>({
     name: "",
     description: "",
-    extraction_instructions: "",
+    instructions: "",
   });
-  const { mutate, isPending, error } = useCreateExtraction();
+  const { mutate, isPending, error } = useCreateSift();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.extraction_instructions) return;
+    if (!form.name || !form.instructions) return;
     mutate(form, {
-      onSuccess: (extraction) => {
+      onSuccess: (sift) => {
         setOpen(false);
-        setForm({ name: "", description: "", extraction_instructions: "" });
-        onCreated?.(extraction.id);
+        setForm({ name: "", description: "", instructions: "" });
+        onCreated?.(sift.id);
       },
     });
   };
@@ -46,9 +46,9 @@ export function ExtractionForm({ trigger, onCreated }: ExtractionFormProps) {
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>New Extraction</DialogTitle>
+          <DialogTitle>New Sift</DialogTitle>
           <DialogDescription>
-            Create an extraction to process documents and extract structured data.
+            Create a sift to process documents and extract structured data.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -72,13 +72,13 @@ export function ExtractionForm({ trigger, onCreated }: ExtractionFormProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="instructions">Extraction Instructions *</Label>
+            <Label htmlFor="instructions">Instructions *</Label>
             <Textarea
               id="instructions"
               placeholder="e.g. Extract: client name, invoice date, total amount, VAT number"
-              value={form.extraction_instructions}
+              value={form.instructions}
               onChange={(e) =>
-                setForm((f) => ({ ...f, extraction_instructions: e.target.value }))
+                setForm((f) => ({ ...f, instructions: e.target.value }))
               }
               rows={4}
               required
@@ -95,7 +95,7 @@ export function ExtractionForm({ trigger, onCreated }: ExtractionFormProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Creating..." : "Create Extraction"}
+              {isPending ? "Creating..." : "Create Sift"}
             </Button>
           </DialogFooter>
         </form>

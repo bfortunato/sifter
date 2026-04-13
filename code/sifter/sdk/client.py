@@ -76,7 +76,7 @@ class SiftHandle:
 
     @property
     def instructions(self) -> str:
-        return self._data.get("extraction_instructions", "")
+        return self._data.get("instructions", "")
 
     @property
     def status(self) -> str:
@@ -117,7 +117,7 @@ class SiftHandle:
                 for f in files_to_upload
             ]
             r = http.post(
-                f"{self._client.api_url}/api/extractions/{self.id}/upload",
+                f"{self._client.api_url}/api/sifts/{self.id}/upload",
                 headers=headers,
                 files=form_files,
             )
@@ -138,7 +138,7 @@ class SiftHandle:
         while True:
             with httpx.Client() as http:
                 r = http.get(
-                    f"{self._client.api_url}/api/extractions/{self.id}",
+                    f"{self._client.api_url}/api/sifts/{self.id}",
                     headers=headers,
                 )
                 r.raise_for_status()
@@ -155,7 +155,7 @@ class SiftHandle:
                 if current_status == "active":
                     self._fire_event("sift.completed", self.id)
                 elif current_status == "error":
-                    self._fire_event("sift.error", self.id, data.get("extraction_error"))
+                    self._fire_event("sift.error", self.id, data.get("error"))
                 return self
 
             if time.time() - start > timeout:
@@ -169,7 +169,7 @@ class SiftHandle:
             with httpx.Client() as h:
                 # Get all extraction results to find newly processed docs
                 r = h.get(
-                    f"{self._client.api_url}/api/extractions/{self.id}/records",
+                    f"{self._client.api_url}/api/sifts/{self.id}/records",
                     headers=headers,
                 )
                 if r.status_code == 200:
@@ -195,7 +195,7 @@ class SiftHandle:
         import httpx
         with httpx.Client() as http:
             r = http.get(
-                f"{self._client.api_url}/api/extractions/{self.id}/records",
+                f"{self._client.api_url}/api/sifts/{self.id}/records",
                 headers=self._client._auth_headers(),
             )
             r.raise_for_status()
@@ -206,7 +206,7 @@ class SiftHandle:
         import httpx
         with httpx.Client() as http:
             r = http.post(
-                f"{self._client.api_url}/api/extractions/{self.id}/query",
+                f"{self._client.api_url}/api/sifts/{self.id}/query",
                 headers=self._client._auth_headers(),
                 json={"query": nl_query},
             )
@@ -218,7 +218,7 @@ class SiftHandle:
         import httpx
         with httpx.Client() as http:
             r = http.get(
-                f"{self._client.api_url}/api/extractions/{self.id}/records/csv",
+                f"{self._client.api_url}/api/sifts/{self.id}/records/csv",
                 headers=self._client._auth_headers(),
             )
             r.raise_for_status()
@@ -231,10 +231,10 @@ class SiftHandle:
         if "name" in kwargs:
             payload["name"] = kwargs["name"]
         if "instructions" in kwargs:
-            payload["extraction_instructions"] = kwargs["instructions"]
+            payload["instructions"] = kwargs["instructions"]
         with httpx.Client() as http:
             r = http.patch(
-                f"{self._client.api_url}/api/extractions/{self.id}",
+                f"{self._client.api_url}/api/sifts/{self.id}",
                 headers=self._client._auth_headers(),
                 json=payload,
             )
@@ -247,7 +247,7 @@ class SiftHandle:
         import httpx
         with httpx.Client() as http:
             r = http.delete(
-                f"{self._client.api_url}/api/extractions/{self.id}",
+                f"{self._client.api_url}/api/sifts/{self.id}",
                 headers=self._client._auth_headers(),
             )
             r.raise_for_status()
@@ -412,12 +412,12 @@ class Sifter:
         import httpx
         with httpx.Client() as http:
             r = http.post(
-                f"{self.api_url}/api/extractions",
+                f"{self.api_url}/api/sifts",
                 headers=self._auth_headers(),
                 json={
                     "name": name,
                     "description": description,
-                    "extraction_instructions": instructions,
+                    "instructions": instructions,
                 },
             )
             r.raise_for_status()
@@ -428,7 +428,7 @@ class Sifter:
         import httpx
         with httpx.Client() as http:
             r = http.get(
-                f"{self.api_url}/api/extractions/{sift_id}",
+                f"{self.api_url}/api/sifts/{sift_id}",
                 headers=self._auth_headers(),
             )
             r.raise_for_status()
@@ -439,7 +439,7 @@ class Sifter:
         import httpx
         with httpx.Client() as http:
             r = http.get(
-                f"{self.api_url}/api/extractions",
+                f"{self.api_url}/api/sifts",
                 headers=self._auth_headers(),
             )
             r.raise_for_status()

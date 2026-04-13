@@ -1,53 +1,53 @@
 import { apiFetch, apiFetchJson } from "../lib/apiFetch";
 import type {
   ChatResponse,
-  CreateExtractionPayload,
-  Extraction,
+  CreateSiftPayload,
+  Sift,
   ExtractionRecord,
   QueryResult,
 } from "./types";
 
-const BASE = "/api/extractions";
+const BASE = "/api/sifts";
 
-export const fetchExtractions = (): Promise<Extraction[]> =>
-  apiFetchJson<Extraction[]>(BASE);
+export const fetchSifts = (): Promise<Sift[]> =>
+  apiFetchJson<Sift[]>(BASE);
 
-export const fetchExtraction = (id: string): Promise<Extraction> =>
-  apiFetchJson<Extraction>(`${BASE}/${id}`);
+export const fetchSift = (id: string): Promise<Sift> =>
+  apiFetchJson<Sift>(`${BASE}/${id}`);
 
-export const createExtraction = (payload: CreateExtractionPayload): Promise<Extraction> =>
-  apiFetchJson<Extraction>(BASE, {
+export const createSift = (payload: CreateSiftPayload): Promise<Sift> =>
+  apiFetchJson<Sift>(BASE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
-export const updateExtraction = (
+export const updateSift = (
   id: string,
-  payload: { name?: string; extraction_instructions?: string; description?: string }
-): Promise<Extraction> =>
-  apiFetchJson<Extraction>(`${BASE}/${id}`, {
+  payload: { name?: string; instructions?: string; description?: string }
+): Promise<Sift> =>
+  apiFetchJson<Sift>(`${BASE}/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 
-export const deleteExtraction = (id: string): Promise<void> =>
+export const deleteSift = (id: string): Promise<void> =>
   apiFetchJson<void>(`${BASE}/${id}`, { method: "DELETE" });
 
 export const uploadDocuments = (id: string, formData: FormData): Promise<unknown> =>
   apiFetchJson<unknown>(`${BASE}/${id}/upload`, { method: "POST", body: formData });
 
-export const reindexExtraction = (id: string): Promise<unknown> =>
+export const reindexSift = (id: string): Promise<unknown> =>
   apiFetchJson<unknown>(`${BASE}/${id}/reindex`, { method: "POST" });
 
-export const resetExtraction = (id: string): Promise<Extraction> =>
-  apiFetchJson<Extraction>(`${BASE}/${id}/reset`, { method: "POST" });
+export const resetSift = (id: string): Promise<Sift> =>
+  apiFetchJson<Sift>(`${BASE}/${id}/reset`, { method: "POST" });
 
-export const fetchExtractionRecords = (id: string): Promise<ExtractionRecord[]> =>
+export const fetchSiftRecords = (id: string): Promise<ExtractionRecord[]> =>
   apiFetchJson<ExtractionRecord[]>(`${BASE}/${id}/records`);
 
-export const exportExtractionCsv = async (id: string, name: string): Promise<void> => {
+export const exportSiftCsv = async (id: string, name: string): Promise<void> => {
   const res = await apiFetch(`${BASE}/${id}/records/csv`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const blob = await res.blob();
@@ -59,14 +59,14 @@ export const exportExtractionCsv = async (id: string, name: string): Promise<voi
   URL.revokeObjectURL(url);
 };
 
-export const queryExtraction = (id: string, query: string): Promise<QueryResult> =>
+export const querySift = (id: string, query: string): Promise<QueryResult> =>
   apiFetchJson<QueryResult>(`${BASE}/${id}/query`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query }),
   });
 
-export const chatWithExtraction = (
+export const chatWithSift = (
   id: string,
   message: string,
   history: Array<{ role: string; content: string }>
@@ -76,3 +76,16 @@ export const chatWithExtraction = (
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, history }),
   });
+
+// Legacy aliases for backward compat within this file
+export const fetchExtractions = fetchSifts;
+export const fetchExtraction = fetchSift;
+export const createExtraction = createSift;
+export const updateExtraction = updateSift;
+export const deleteExtraction = deleteSift;
+export const reindexExtraction = reindexSift;
+export const resetExtraction = resetSift;
+export const fetchExtractionRecords = fetchSiftRecords;
+export const exportExtractionCsv = exportSiftCsv;
+export const queryExtraction = querySift;
+export const chatWithExtraction = chatWithSift;

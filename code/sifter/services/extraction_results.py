@@ -8,14 +8,14 @@ import structlog
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from ..models.extraction_result import ExtractionResult
+from ..models.extraction_result import SiftResult
 
 logger = structlog.get_logger()
 
-COLLECTION = "extraction_results"
+COLLECTION = "sift_results"
 
 
-class ExtractionResultsService:
+class SiftResultsService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
         self.col = db[COLLECTION]
@@ -37,8 +37,8 @@ class ExtractionResultsService:
         confidence: float,
         extracted_data: dict[str, Any],
         org_id: Optional[str] = None,
-    ) -> ExtractionResult:
-        result = ExtractionResult(
+    ) -> SiftResult:
+        result = SiftResult(
             organization_id=org_id,
             extraction_id=extraction_id,
             document_id=document_id,
@@ -56,17 +56,17 @@ class ExtractionResultsService:
         logger.info("result_inserted", extraction_id=extraction_id, document_id=document_id)
         return result
 
-    async def get_results(self, extraction_id: str, org_id: Optional[str] = None) -> list[ExtractionResult]:
+    async def get_results(self, extraction_id: str, org_id: Optional[str] = None) -> list[SiftResult]:
         query: dict = {"extraction_id": extraction_id}
         if org_id:
             query["organization_id"] = org_id
         cursor = self.col.find(query)
         docs = await cursor.to_list(length=None)
-        return [ExtractionResult.from_mongo(d) for d in docs]
+        return [SiftResult.from_mongo(d) for d in docs]
 
-    async def get_result(self, result_id: str) -> ExtractionResult | None:
+    async def get_result(self, result_id: str) -> SiftResult | None:
         doc = await self.col.find_one({"_id": ObjectId(result_id)})
-        return ExtractionResult.from_mongo(doc) if doc else None
+        return SiftResult.from_mongo(doc) if doc else None
 
     async def delete_by_extraction_id(self, extraction_id: str) -> int:
         result = await self.col.delete_many({"extraction_id": extraction_id})

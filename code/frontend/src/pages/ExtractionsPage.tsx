@@ -5,17 +5,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ExtractionForm } from "@/components/ExtractionForm";
-import { useExtractions } from "@/hooks/useExtractions";
+import { useSifts } from "@/hooks/useExtractions";
 
 export function ExtractionsPage() {
   const navigate = useNavigate();
-  const { data: extractions, isLoading, error } = useExtractions();
+  const { data: extractions, isLoading, error } = useSifts();
 
   return (
     <div className="container py-8 max-w-5xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Extractions</h1>
+          <h1 className="text-2xl font-bold">Sifts</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Process documents and query structured data with AI
           </p>
@@ -24,7 +24,7 @@ export function ExtractionsPage() {
           trigger={
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              New Extraction
+              New Sift
             </Button>
           }
           onCreated={(id) => navigate(`/extractions/${id}`)}
@@ -42,7 +42,7 @@ export function ExtractionsPage() {
       {error && (
         <Card className="border-destructive">
           <CardContent className="pt-6 text-destructive">
-            Failed to load extractions: {(error as Error).message}
+            Failed to load sifts: {(error as Error).message}
           </CardContent>
         </Card>
       )}
@@ -50,8 +50,8 @@ export function ExtractionsPage() {
       {extractions && extractions.length === 0 && (
         <div className="text-center py-20 text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">No extractions yet</p>
-          <p className="text-sm mt-1">Create your first extraction to start processing documents</p>
+          <p className="text-lg font-medium">No sifts yet</p>
+          <p className="text-sm mt-1">Create your first sift to start processing documents</p>
         </div>
       )}
 

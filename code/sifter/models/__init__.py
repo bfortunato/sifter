@@ -1,11 +1,11 @@
-from .extraction import Extraction, ExtractionStatus
-from .extraction_result import ExtractionResult
+from .extraction import Sift, SiftStatus
+from .extraction_result import SiftResult
 from .aggregation import Aggregation, AggregationStatus
 
 __all__ = [
-    "Extraction",
-    "ExtractionStatus",
-    "ExtractionResult",
+    "Sift",
+    "SiftStatus",
+    "SiftResult",
     "Aggregation",
     "AggregationStatus",
 ]

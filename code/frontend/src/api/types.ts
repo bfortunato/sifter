@@ -33,19 +33,19 @@ export interface APIKey {
   is_active: boolean;
 }
 
-// ---- Extractions ----
+// ---- Sifts ----
 
-export type ExtractionStatus = "active" | "indexing" | "paused" | "error";
+export type SiftStatus = "active" | "indexing" | "paused" | "error";
 
-export interface Extraction {
+export interface Sift {
   id: string;
   organization_id: string | null;
   name: string;
   description: string;
-  extraction_instructions: string;
-  extraction_schema: string | null;
-  status: ExtractionStatus;
-  extraction_error: string | null;
+  instructions: string;
+  schema: string | null;
+  status: SiftStatus;
+  error: string | null;
   processed_documents: number;
   total_documents: number;
   created_at: string;
@@ -61,11 +61,11 @@ export interface ExtractionRecord {
   created_at: string;
 }
 
-export interface CreateExtractionPayload {
+export interface CreateSiftPayload {
   name: string;
   description?: string;
-  extraction_instructions: string;
-  extraction_schema?: string;
+  instructions: string;
+  schema?: string;
 }
 
 // ---- Aggregations ----

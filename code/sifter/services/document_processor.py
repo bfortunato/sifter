@@ -86,6 +86,20 @@ async def worker() -> None:
                 extraction_id=task.extraction_id,
                 confidence=result.confidence,
             )
+
+            # Dispatch webhook event
+            await _dispatch_webhook(
+                db=db,
+                org_id=task.org_id,
+                event="sift.document.processed",
+                payload={
+                    "document_id": task.document_id,
+                    "sift_id": task.extraction_id,
+                    "record_id": result.id,
+                },
+                sift_id=task.extraction_id,
+            )
+
         except Exception as e:
             logger.error(
                 "document_processing_failed",
@@ -100,10 +114,31 @@ async def worker() -> None:
                     DocumentExtractionStatusEnum.ERROR,
                     error_message=str(e),
                 )
+                await _dispatch_webhook(
+                    db=db,
+                    org_id=task.org_id,
+                    event="sift.error",
+                    payload={
+                        "document_id": task.document_id,
+                        "sift_id": task.extraction_id,
+                        "error": str(e),
+                    },
+                    sift_id=task.extraction_id,
+                )
             except Exception as update_err:
                 logger.error("status_update_failed", error=str(update_err))
         finally:
             _queue.task_done()
+
+
+async def _dispatch_webhook(db, org_id: str, event: str, payload: dict, sift_id: Optional[str] = None) -> None:
+    """Fire-and-forget webhook dispatch. Failures are logged but never raised."""
+    try:
+        from .webhook_service import WebhookService
+        svc = WebhookService(db)
+        await svc.dispatch(org_id=org_id, event=event, payload=payload, sift_id=sift_id)
+    except Exception as e:
+        logger.warning("webhook_dispatch_error", error=str(e))
 
 
 def start_workers(n: int) -> list[asyncio.Task]:

@@ -41,15 +41,16 @@ Create response: `{ "key": {...metadata}, "plaintext": "sk-..." }`
 | GET | `/api/orgs/{org_id}/members` | List members |
 | POST | `/api/orgs/{org_id}/members` | Invite member by email |
 
-## Extractions
+## Extractions (Sifts)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/extractions` | Create new extraction |
 | GET | `/api/extractions` | List extractions (scoped to org) |
 | GET | `/api/extractions/{id}` | Get extraction details |
+| PATCH | `/api/extractions/{id}` | Update extraction (name, description, instructions, schema) |
 | DELETE | `/api/extractions/{id}` | Delete extraction + results |
-| POST | `/api/extractions/{id}/upload` | Upload documents directly (deprecated) |
+| POST | `/api/extractions/{id}/upload` | Upload documents directly |
 | POST | `/api/extractions/{id}/reindex` | Reindex all documents |
 | POST | `/api/extractions/{id}/reset` | Reset error state |
 | GET | `/api/extractions/{id}/records` | Get extracted records |
@@ -79,12 +80,25 @@ Result response: `{ "results": list, "pipeline": list, "ran_at": str }`
 | GET | `/api/folders` | List folders for current org |
 | POST | `/api/folders` | Create folder |
 | GET | `/api/folders/{folder_id}` | Folder detail |
+| PATCH | `/api/folders/{folder_id}` | Update folder (name, description) |
 | DELETE | `/api/folders/{folder_id}` | Delete folder and all documents |
 | GET | `/api/folders/{folder_id}/extractors` | List linked extractors |
 | POST | `/api/folders/{folder_id}/extractors` | Link extractor: `{ "extraction_id": str }` |
 | DELETE | `/api/folders/{folder_id}/extractors/{extraction_id}` | Unlink extractor |
 | GET | `/api/folders/{folder_id}/documents` | List documents with per-extractor status |
 | POST | `/api/folders/{folder_id}/documents` | Upload document (multipart); triggers processing |
+
+## Webhooks
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/webhooks` | List webhooks for current org |
+| POST | `/api/webhooks` | Register webhook |
+| DELETE | `/api/webhooks/{hook_id}` | Delete webhook |
+
+Register body: `{ "events": list[str], "url": str, "sift_id"?: str }`
+Events support wildcard patterns: `sift.*`, `**`, etc.
+Delivery: HTTP POST to `url` with body `{ "event": str, "payload": {...} }`
 
 ## Documents
 

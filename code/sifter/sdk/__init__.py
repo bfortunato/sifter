@@ -1,3 +1,3 @@
-from .client import Sifter
+from .client import FolderHandle, SiftHandle, Sifter
 
-__all__ = ["Sifter"]
+__all__ = ["Sifter", "SiftHandle", "FolderHandle"]

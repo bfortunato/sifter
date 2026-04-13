@@ -27,6 +27,13 @@ class CreateExtractionRequest(BaseModel):
     extraction_schema: Optional[str] = None
 
 
+class UpdateExtractionRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    extraction_instructions: Optional[str] = None
+    extraction_schema: Optional[str] = None
+
+
 class QueryRequest(BaseModel):
     query: str
 
@@ -72,6 +79,21 @@ async def get_extraction(
 ):
     svc = ExtractionService(db)
     extraction = await svc.get(extraction_id, org_id=principal.org_id)
+    if not extraction:
+        raise HTTPException(status_code=404, detail="Extraction not found")
+    return _extraction_to_dict(extraction)
+
+
+@router.patch("/{extraction_id}", response_model=dict)
+async def update_extraction(
+    extraction_id: str,
+    body: UpdateExtractionRequest,
+    principal: Principal = Depends(get_current_principal),
+    db=Depends(get_db),
+):
+    svc = ExtractionService(db)
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    extraction = await svc.update(extraction_id, updates)
     if not extraction:
         raise HTTPException(status_code=404, detail="Extraction not found")
     return _extraction_to_dict(extraction)

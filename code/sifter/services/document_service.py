@@ -58,6 +58,14 @@ class DocumentService:
         )
         return Folder.from_mongo(doc) if doc else None
 
+    async def update_folder(self, folder_id: str, org_id: str, updates: dict) -> Optional[Folder]:
+        result = await self.db["folders"].find_one_and_update(
+            {"_id": ObjectId(folder_id), "organization_id": org_id},
+            {"$set": updates},
+            return_document=True,
+        )
+        return Folder.from_mongo(result) if result else None
+
     async def delete_folder(self, folder_id: str, org_id: str) -> bool:
         # Cascade: delete documents and their statuses
         docs = await self.db["documents"].find(

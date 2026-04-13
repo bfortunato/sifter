@@ -20,6 +20,11 @@ class CreateFolderRequest(BaseModel):
     description: str = ""
 
 
+class UpdateFolderRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
 class LinkExtractorRequest(BaseModel):
     extraction_id: str
 
@@ -79,6 +84,21 @@ async def get_folder(
             for e in extractors
         ],
     }
+
+
+@router.patch("/{folder_id}")
+async def update_folder(
+    folder_id: str,
+    body: UpdateFolderRequest,
+    principal: Principal = Depends(get_current_principal),
+    db=Depends(get_db),
+):
+    svc = DocumentService(db)
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    folder = await svc.update_folder(folder_id, principal.org_id, updates)
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    return _folder_dict(folder)
 
 
 @router.delete("/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)

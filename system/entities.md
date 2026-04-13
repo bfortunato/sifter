@@ -202,3 +202,22 @@ Compound index on `(document_id, extraction_id)`. Index on `organization_id`.
     "extraction_record_id": str | None   # ExtractionResult._id when done
 }
 ```
+
+## Webhook
+
+MongoDB collection: `webhooks`
+
+Index on `organization_id`.
+
+```python
+{
+    "_id": ObjectId,
+    "organization_id": str,
+    "events": list[str],           # wildcard patterns, e.g. ["sift.*"]
+    "url": str,                    # delivery target
+    "sift_id": str | None,         # optional filter: only fire for this sift
+    "created_at": datetime
+}
+```
+
+Wildcard rules: `*` matches any single segment, `**` matches any number of segments.

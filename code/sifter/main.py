@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .api import aggregations, auth, chat, documents, extractions, folders, keys, orgs
+from .api import aggregations, auth, chat, documents, extractions, folders, keys, orgs, webhooks
 from .config import config
 from .db import close as close_db, get_db
 from .services.aggregation_service import AggregationService
@@ -16,6 +16,7 @@ from .services.auth_service import AuthService
 from .services.document_processor import start_workers
 from .services.document_service import DocumentService
 from .services.extraction_service import ExtractionService
+from .services.webhook_service import WebhookService
 
 structlog.configure(
     processors=[
@@ -45,6 +46,7 @@ async def lifespan(app: FastAPI):
     await AggregationService(db).ensure_indexes()
     await AuthService(db).ensure_indexes()
     await DocumentService(db).ensure_indexes()
+    await WebhookService(db).ensure_indexes()
 
     # Start background document processing workers
     _worker_tasks = start_workers(config.max_workers)
@@ -86,6 +88,7 @@ app.include_router(aggregations.router)
 app.include_router(chat.router)
 app.include_router(folders.router)
 app.include_router(documents.router)
+app.include_router(webhooks.router)
 
 
 @app.get("/health")

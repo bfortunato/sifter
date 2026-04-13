@@ -33,11 +33,12 @@ export function ExtractionDetailPage() {
 
   const isIndexing = (status: string) => status === "indexing";
 
-  const { data: extraction, isLoading, error } = useExtraction(id!, {
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      return data && isIndexing(data.status) ? 2000 : false;
-    },
+  // First load without polling
+  const { data: extraction, isLoading, error } = useExtraction(id!);
+
+  // When indexing, poll every 2s (this query stays enabled only during indexing)
+  useExtraction(id!, {
+    refetchInterval: extraction && isIndexing(extraction.status) ? 2000 : false,
   });
 
   const { data: records, isLoading: recordsLoading } = useExtractionRecords(id!);

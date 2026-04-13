@@ -71,7 +71,8 @@ docker compose up
 ### Option B: SDK only
 
 ```bash
-pip install sifter-ai
+# Install uv first: https://docs.astral.sh/uv/getting-started/installation/
+uv add sifter-ai
 
 # Requires MongoDB running locally
 # docker run -d -p 27017:27017 mongo:7
@@ -79,20 +80,25 @@ pip install sifter-ai
 
 ### Option C: Local development
 
+[uv](https://docs.astral.sh/uv/) is the required package manager for this project.
+
 ```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # Start MongoDB
 docker run -d -p 27017:27017 mongo:7
 
-# Install backend
+# Install backend (creates .venv automatically)
 cd code
-pip install -e ".[dev]"
+uv sync --dev
 
 # Set env vars
-export SIFTER_LLM_API_KEY=sk-...
-export SIFTER_LLM_MODEL=openai/gpt-4o
+cp .env.example .env
+# Edit .env: set SIFTER_LLM_API_KEY
 
 # Run API
-python -m sifter.main
+uv run python -m sifter.main
 
 # In another terminal: run frontend
 cd frontend
@@ -230,11 +236,11 @@ sifter/
 Contributions welcome! Please open an issue first for significant changes.
 
 ```bash
-# Setup dev environment
-pip install -e ".[dev]"
+# Setup dev environment (uv required)
+uv sync --dev
 
 # Run tests
-pytest tests/
+uv run pytest tests/
 
 # The prompts in sifter/prompts/ are the "secret sauce" — improve them carefully
 ```

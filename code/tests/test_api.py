@@ -1,0 +1,366 @@
+"""
+Integration tests for the FastAPI REST API.
+Runs against a real MongoDB test database (sifter_test).
+Requires MongoDB running at localhost:27017.
+"""
+
+import os
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from unittest.mock import AsyncMock, MagicMock, patch
+
+# Use a test database
+os.environ["SIFTER_MONGODB_DATABASE"] = "sifter_test"
+os.environ.setdefault("SIFTER_LLM_API_KEY", "test-key")
+
+# All tests in this module share the session event loop
+pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+from sifter.main import app
+
+
+@pytest_asyncio.fixture(scope="session")
+async def client():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def clean_db(client):
+    """Wipe test collections before each test."""
+    from sifter.db import get_db
+    db = get_db()
+    await db["extractions"].delete_many({})
+    await db["extraction_results"].delete_many({})
+    await db["aggregations"].delete_many({})
+    yield
+
+
+# ---- Health ----
+
+async def test_health(client):
+    r = await client.get("/health")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+
+
+# ---- Extractions CRUD ----
+
+async def test_create_extraction(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Test Invoices",
+        "description": "Integration test",
+        "extraction_instructions": "Extract: client, date, amount",
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == "Test Invoices"
+    assert data["status"] == "active"
+    assert "id" in data
+    assert data["id"]
+
+
+async def test_create_extraction_missing_instructions(client):
+    r = await client.post("/api/extractions", json={"name": "Test"})
+    assert r.status_code == 422
+
+
+async def test_list_extractions_empty(client):
+    r = await client.get("/api/extractions")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+async def test_list_extractions(client):
+    for i in range(3):
+        await client.post("/api/extractions", json={
+            "name": f"Extraction {i}",
+            "extraction_instructions": "Extract: x",
+        })
+    r = await client.get("/api/extractions")
+    assert r.status_code == 200
+    assert len(r.json()) == 3
+
+
+async def test_get_extraction(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Fetch Me",
+        "extraction_instructions": "Extract: x",
+    })
+    eid = r.json()["id"]
+
+    r2 = await client.get(f"/api/extractions/{eid}")
+    assert r2.status_code == 200
+    assert r2.json()["id"] == eid
+    assert r2.json()["name"] == "Fetch Me"
+
+
+async def test_get_extraction_not_found(client):
+    r = await client.get("/api/extractions/000000000000000000000000")
+    assert r.status_code == 404
+
+
+async def test_delete_extraction(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Delete Me",
+        "extraction_instructions": "Extract: x",
+    })
+    eid = r.json()["id"]
+
+    r2 = await client.delete(f"/api/extractions/{eid}")
+    assert r2.status_code == 200
+    assert r2.json()["deleted"] is True
+
+    r3 = await client.get(f"/api/extractions/{eid}")
+    assert r3.status_code == 404
+
+
+async def test_reset_extraction(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Reset Me",
+        "extraction_instructions": "Extract: x",
+    })
+    eid = r.json()["id"]
+
+    r2 = await client.post(f"/api/extractions/{eid}/reset")
+    assert r2.status_code == 200
+    assert r2.json()["extraction_error"] is None
+
+
+# ---- Records ----
+
+async def test_get_records_empty(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Empty",
+        "extraction_instructions": "Extract: x",
+    })
+    eid = r.json()["id"]
+
+    r2 = await client.get(f"/api/extractions/{eid}/records")
+    assert r2.status_code == 200
+    assert r2.json() == []
+
+
+async def _insert_records(extraction_id, records):
+    from sifter.db import get_db
+    from sifter.services.extraction_results import ExtractionResultsService
+    svc = ExtractionResultsService(get_db())
+    await svc.ensure_indexes()
+    for doc_id, doc_type, conf, data in records:
+        await svc.insert_result(extraction_id, doc_id, doc_type, conf, data)
+
+
+async def test_get_records_with_data(client):
+    r = await client.post("/api/extractions", json={
+        "name": "With Data",
+        "extraction_instructions": "Extract: client, amount",
+    })
+    eid = r.json()["id"]
+
+    await _insert_records(eid, [
+        ("invoice.pdf", "invoice", 0.95, {"client": "Acme Corp", "amount": 1500.0}),
+        ("invoice2.pdf", "invoice", 0.88, {"client": "Globex", "amount": 2000.0}),
+    ])
+
+    r2 = await client.get(f"/api/extractions/{eid}/records")
+    assert r2.status_code == 200
+    records = r2.json()
+    assert len(records) == 2
+    clients = {rec["extracted_data"]["client"] for rec in records}
+    assert clients == {"Acme Corp", "Globex"}
+
+
+# ---- CSV Export ----
+
+async def test_export_csv_with_data(client):
+    r = await client.post("/api/extractions", json={
+        "name": "CSV Test",
+        "extraction_instructions": "Extract: client, amount",
+    })
+    eid = r.json()["id"]
+
+    await _insert_records(eid, [
+        ("doc1.pdf", "invoice", 0.9, {"client": "Acme", "amount": 100.0}),
+        ("doc2.pdf", "invoice", 0.8, {"client": "Globex", "amount": 200.0}),
+    ])
+
+    r2 = await client.get(f"/api/extractions/{eid}/records/csv")
+    assert r2.status_code == 200
+    assert "text/csv" in r2.headers["content-type"]
+    csv_text = r2.text
+    assert "client" in csv_text
+    assert "Acme" in csv_text
+    assert "200.0" in csv_text
+
+
+# ---- Live Query ----
+
+async def test_live_query(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Query Test",
+        "extraction_instructions": "Extract: client, amount",
+    })
+    eid = r.json()["id"]
+
+    await _insert_records(eid, [
+        ("x.pdf", "invoice", 0.9, {"client": "TestCorp", "amount": 999.0}),
+        ("y.pdf", "invoice", 0.9, {"client": "TestCorp", "amount": 1.0}),
+    ])
+
+    pipeline_json = '[{"$group": {"_id": null, "total": {"$sum": "$extracted_data.amount"}}}]'
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = pipeline_json
+
+    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = mock_response
+        r2 = await client.post(f"/api/extractions/{eid}/query", json={"query": "total amount"})
+
+    assert r2.status_code == 200
+    data = r2.json()
+    assert data["results"][0]["total"] == 1000.0
+
+
+# ---- Aggregations ----
+
+async def test_create_and_list_aggregation(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Agg Test",
+        "extraction_instructions": "Extract: client, amount",
+    })
+    eid = r.json()["id"]
+
+    pipeline_json = '[{"$count": "total"}]'
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = pipeline_json
+
+    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = mock_response
+        r2 = await client.post("/api/aggregations", json={
+            "name": "Count All",
+            "extraction_id": eid,
+            "aggregation_query": "count all documents",
+        })
+
+    assert r2.status_code == 200
+    agg = r2.json()
+    assert agg["name"] == "Count All"
+    assert agg["extraction_id"] == eid
+
+    # List
+    r3 = await client.get(f"/api/aggregations?extraction_id={eid}")
+    assert r3.status_code == 200
+    assert len(r3.json()) == 1
+
+
+async def test_aggregation_execute(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Exec Test",
+        "extraction_instructions": "Extract: client, amount",
+    })
+    eid = r.json()["id"]
+
+    await _insert_records(eid, [
+        ("a.pdf", "invoice", 0.9, {"client": "Acme", "amount": 100.0}),
+        ("b.pdf", "invoice", 0.9, {"client": "Acme", "amount": 200.0}),
+    ])
+
+    pipeline_json = '[{"$group": {"_id": "$extracted_data.client", "total": {"$sum": "$extracted_data.amount"}}}]'
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = pipeline_json
+
+    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = mock_response
+        r2 = await client.post("/api/aggregations", json={
+            "name": "Total by Client",
+            "extraction_id": eid,
+            "aggregation_query": "total by client",
+        })
+
+    agg_id = r2.json()["id"]
+
+    r3 = await client.get(f"/api/aggregations/{agg_id}/result")
+    assert r3.status_code == 200
+    results = r3.json()["results"]
+    assert len(results) == 1
+    assert results[0]["_id"] == "Acme"
+    assert results[0]["total"] == 300.0
+
+
+async def test_delete_aggregation(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Del Agg",
+        "extraction_instructions": "Extract: x",
+    })
+    eid = r.json()["id"]
+
+    pipeline_json = '[{"$count": "total"}]'
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = pipeline_json
+
+    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = mock_response
+        r2 = await client.post("/api/aggregations", json={
+            "name": "To Delete",
+            "extraction_id": eid,
+            "aggregation_query": "count",
+        })
+
+    agg_id = r2.json()["id"]
+    r3 = await client.delete(f"/api/aggregations/{agg_id}")
+    assert r3.status_code == 200
+    assert r3.json()["deleted"] is True
+
+    r4 = await client.get(f"/api/aggregations/{agg_id}")
+    assert r4.status_code == 404
+
+
+# ---- Chat ----
+
+async def test_chat_plain_response(client):
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = (
+        '{"response": "I can help you analyze your documents!", "data": null}'
+    )
+    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = mock_response
+        r = await client.post("/api/chat", json={"message": "Hello!"})
+
+    assert r.status_code == 200
+    data = r.json()
+    assert "I can help" in data["response"]
+    assert data["data"] is None
+
+
+async def test_chat_with_extraction_context(client):
+    r = await client.post("/api/extractions", json={
+        "name": "Invoice Set",
+        "extraction_instructions": "Extract: client, amount",
+    })
+    eid = r.json()["id"]
+
+    await _insert_records(eid, [
+        ("doc.pdf", "invoice", 0.9, {"client": "Acme", "amount": 500.0}),
+    ])
+
+    mock_chat_response = MagicMock()
+    mock_chat_response.choices = [MagicMock()]
+    mock_chat_response.choices[0].message.content = (
+        '{"response": "Total is 500.", "data": [{"total": 500.0}]}'
+    )
+
+    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = mock_chat_response
+        r2 = await client.post("/api/chat", json={
+            "message": "What is the total amount?",
+            "extraction_id": eid,
+        })
+
+    assert r2.status_code == 200
+    data = r2.json()
+    assert "500" in data["response"]

@@ -1,27 +1,49 @@
+import os
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 import structlog
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import os
-from pathlib import Path
 
-from .api import extractions, aggregations, chat
+from .api import aggregations, chat, extractions
 from .config import config
 from .db import close as close_db, get_db
-from .services.extraction_service import ExtractionService
 from .services.aggregation_service import AggregationService
+from .services.extraction_service import ExtractionService
 
 structlog.configure(
     processors=[
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.dev.ConsoleRenderer(),
-    ]
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(20),  # INFO level
 )
 
 logger = structlog.get_logger()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("sifter_starting", mongodb_uri=config.mongodb_uri, model=config.llm_model)
+    os.makedirs(config.upload_dir, exist_ok=True)
+
+    db = get_db()
+    await ExtractionService(db).ensure_indexes()
+    await AggregationService(db).ensure_indexes()
+    logger.info("sifter_ready")
+
+    yield
+
+    # Shutdown
+    await close_db()
+    logger.info("sifter_shutdown")
+
 
 app = FastAPI(
     title="Sifter",
@@ -29,6 +51,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -42,26 +65,6 @@ app.add_middleware(
 app.include_router(extractions.router)
 app.include_router(aggregations.router)
 app.include_router(chat.router)
-
-
-@app.on_event("startup")
-async def startup():
-    logger.info("sifter_starting", mongodb_uri=config.mongodb_uri, model=config.llm_model)
-    os.makedirs(config.upload_dir, exist_ok=True)
-
-    # Ensure DB indexes
-    db = get_db()
-    ext_svc = ExtractionService(db)
-    agg_svc = AggregationService(db)
-    await ext_svc.ensure_indexes()
-    await agg_svc.ensure_indexes()
-    logger.info("sifter_ready")
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    await close_db()
-    logger.info("sifter_shutdown")
 
 
 @app.get("/health")

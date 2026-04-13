@@ -197,22 +197,22 @@ export default function FolderDetailPage() {
         )}
       </div>
 
-      {/* Linked Extractors */}
+      {/* Linked Sifts */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Linked Extractors</h2>
+          <h2 className="font-semibold">Linked Sifts</h2>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowLinkDialog(true)}
             className="flex items-center gap-1"
           >
-            <LinkIcon className="h-4 w-4" /> Link Extractor
+            <LinkIcon className="h-4 w-4" /> Link Sift
           </Button>
         </div>
         {folder.extractors?.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No extractors linked. Link an extractor to auto-process uploaded documents.
+            No sifts linked. Link a sift to auto-process uploaded documents.
           </p>
         ) : (
           <div className="space-y-2">
@@ -313,16 +313,16 @@ export default function FolderDetailPage() {
         )}
       </div>
 
-      {/* Link Extractor Dialog */}
+      {/* Link Sift Dialog */}
       <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Link Extractor</DialogTitle>
+            <DialogTitle>Link Sift</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {availableToLink.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                All extractors are already linked to this folder.
+                All sifts are already linked to this folder.
               </p>
             ) : (
               <div className="space-y-2">
@@ -347,7 +347,7 @@ export default function FolderDetailPage() {
               disabled={!selectedExtractorId || linkMutation.isPending}
               className="w-full"
             >
-              {linkMutation.isPending ? "Linking..." : "Link Extractor"}
+              {linkMutation.isPending ? "Linking..." : "Link Sift"}
             </Button>
           </div>
         </DialogContent>

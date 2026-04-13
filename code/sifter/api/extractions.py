@@ -151,29 +151,71 @@ async def upload_documents(
 @router.post("/{extraction_id}/reindex")
 async def reindex_extraction(
     extraction_id: str,
-    background_tasks: BackgroundTasks,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
+    from ..services.document_service import DocumentService
+    from ..services.document_processor import enqueue
+    from ..models.document import DocumentExtractionStatusEnum
+
     svc = ExtractionService(db)
+    doc_svc = DocumentService(db)
+
     extraction = await svc.get(extraction_id, org_id=principal.org_id)
     if not extraction:
         raise HTTPException(status_code=404, detail="Extraction not found")
 
-    upload_dir = Path(config.upload_dir) / extraction_id
-    if not upload_dir.exists():
-        raise HTTPException(status_code=400, detail="No documents uploaded for this extraction")
+    # Find all documents that were processed by this extraction (folder-based)
+    statuses = await db["document_extraction_statuses"].find(
+        {"extraction_id": extraction_id, "organization_id": principal.org_id}
+    ).to_list(length=None)
 
-    file_paths = [
-        str(p)
-        for p in upload_dir.iterdir()
-        if p.is_file() and not p.name.startswith(".")
-    ]
-    if not file_paths:
+    folder_doc_paths: list[tuple[str, str]] = []  # (document_id, storage_path)
+    for s in statuses:
+        doc = await db["documents"].find_one({"_id": __import__("bson").ObjectId(s["document_id"])})
+        if doc and doc.get("storage_path"):
+            folder_doc_paths.append((s["document_id"], doc["storage_path"]))
+
+    # Also collect directly-uploaded files (legacy path)
+    upload_dir = Path(config.upload_dir) / extraction_id
+    direct_paths = []
+    if upload_dir.exists():
+        direct_paths = [
+            str(p) for p in upload_dir.iterdir()
+            if p.is_file() and not p.name.startswith(".")
+        ]
+
+    if not folder_doc_paths and not direct_paths:
         raise HTTPException(status_code=400, detail="No documents found to reindex")
 
-    background_tasks.add_task(svc.reindex, extraction_id, file_paths)
-    return {"status": "reindexing", "total": len(file_paths)}
+    # Clear existing results
+    await svc.results_service.delete_by_extraction_id(extraction_id)
+    await svc.update(
+        extraction_id,
+        {
+            "status": ExtractionStatus.INDEXING,
+            "extraction_schema": None,
+            "processed_documents": 0,
+            "total_documents": len(folder_doc_paths) + len(direct_paths),
+            "extraction_error": None,
+        },
+    )
+
+    # Re-enqueue folder-based documents through the queue
+    for doc_id, storage_path in folder_doc_paths:
+        await db["document_extraction_statuses"].update_one(
+            {"document_id": doc_id, "extraction_id": extraction_id},
+            {"$set": {"status": DocumentExtractionStatusEnum.PENDING, "error_message": None, "extraction_record_id": None}},
+        )
+        enqueue(doc_id, extraction_id, storage_path, principal.org_id)
+
+    # Re-process direct-uploaded files via background task (old path)
+    if direct_paths:
+        import asyncio
+        asyncio.create_task(svc.process_documents(extraction_id, direct_paths))
+
+    total = len(folder_doc_paths) + len(direct_paths)
+    return {"status": "reindexing", "total": total}
 
 
 @router.post("/{extraction_id}/reset")

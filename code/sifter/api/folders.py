@@ -147,12 +147,36 @@ async def link_extractor(
     folder = await svc.get_folder(folder_id, principal.org_id)
     if not folder:
         raise HTTPException(status_code=404, detail="Folder not found")
+
     link = await svc.link_extractor(folder_id, body.extraction_id, principal.org_id)
+
+    # Enqueue all existing folder documents for the newly linked sift
+    existing_docs = await db["documents"].find(
+        {"folder_id": folder_id, "organization_id": principal.org_id}
+    ).to_list(length=None)
+
+    enqueued = 0
+    for doc in existing_docs:
+        doc_id = str(doc["_id"])
+        storage_path = doc.get("storage_path")
+        if not storage_path:
+            continue
+        # Check no status already exists for this doc+extraction pair
+        existing = await db["document_extraction_statuses"].find_one(
+            {"document_id": doc_id, "extraction_id": body.extraction_id}
+        )
+        if existing:
+            continue
+        await svc.create_extraction_status(doc_id, body.extraction_id, principal.org_id)
+        enqueue(doc_id, body.extraction_id, storage_path, principal.org_id)
+        enqueued += 1
+
     return {
         "id": link.id,
         "folder_id": link.folder_id,
         "extraction_id": link.extraction_id,
         "created_at": link.created_at.isoformat(),
+        "enqueued_existing": enqueued,
     }
 
 

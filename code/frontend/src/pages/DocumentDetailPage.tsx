@@ -79,12 +79,12 @@ export default function DocumentDetailPage() {
         </div>
       </div>
 
-      {/* Per-extractor results */}
+      {/* Per-sift results */}
       <div className="space-y-4">
         <h2 className="font-semibold">Extraction Results</h2>
         {doc.extraction_statuses?.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No extractors linked to this document's folder.
+            No sifts linked to this document's folder.
           </p>
         ) : (
           doc.extraction_statuses?.map((s: DocumentExtractionStatus) => {

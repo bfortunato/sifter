@@ -41,12 +41,17 @@ Both JWT Bearer tokens and API keys are accepted on all protected endpoints:
 - API Key: `X-API-Key: <key>` header
 - Returns HTTP 401 if neither is present or both are invalid
 
-## Frontend Pages
+## Frontend Pages & Layout
 
 - **Login** (`/login`) — email + password form; link to register
 - **Register** (`/register`) — full name, email, password form; auto-login on success
-- **Settings** (`/settings`) — two sections:
-  - *API Keys*: list keys (prefix + created date), "Create Key" button (opens dialog showing full key once), revoke button per key
-  - *Organization*: org name, member list with roles, invite form (email + role dropdown)
-- **Navbar**: User menu with logout; organization switcher dropdown if user belongs to multiple orgs
+- **Sidebar** (persistent left column, authenticated only):
+  - Logo "⬡ Sifter" at top
+  - Nav links: Sifts (`/`), Folders (`/folders`), Chat (`/chat`)
+  - Bottom: Settings (`/settings`), user email, Logout button
+- **Settings** (`/settings`) — two-column layout with left sub-navigation:
+  - *Profile*: username, email, member since (read-only)
+  - *API Keys*: table of keys (name, masked key, created date, delete); warning callout that keys are shown only once; "Create API Key" button opens dialog that shows full key once
+  - *Webhooks*: table of registered webhooks (URL, events pattern, created date, delete); "Register Webhook" button
+  - *Organization*: placeholder for future org management settings
 - All routes except `/login` and `/register` require authentication — redirect to `/login` on 401

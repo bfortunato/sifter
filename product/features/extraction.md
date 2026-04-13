@@ -9,28 +9,37 @@ Users define extraction instructions that describe what structured fields to pul
 
 ## User Flow
 
-1. User creates an extraction with a name, description, and natural language instructions (e.g. "Extract: client name, invoice date, total amount, VAT number")
-2. Documents are uploaded via **Folders** (see `documents.md`) — upload a document to a folder linked to this extractor to trigger automatic processing
+1. User creates a sift with a name, description, and natural language instructions (e.g. "Extract: client name, invoice date, total amount, VAT number")
+2. Documents are uploaded via **Folders** (see `documents.md`) — upload a document to a folder linked to this sift to trigger automatic processing
 3. Sifter processes each document asynchronously via the background queue
-4. Extraction schema is auto-inferred from the first processed document
-5. User can view extracted records as a structured table on the extraction detail page
+4. Sift schema is auto-inferred from the first processed document
+5. User can view extracted records as a structured table on the sift detail page
 6. User can reindex all documents (useful when instructions change)
 7. User can export records as CSV
 
 ## Key Behaviors
 
-- Each document produces one `ExtractionResult` record with `extracted_data` key-value pairs
+- Each document produces one `SiftResult` record with `extracted_data` key-value pairs
 - Fields not found in a document are set to `null`
 - Numeric values stored as numbers, dates as ISO YYYY-MM-DD strings
-- The extraction tracks status: `active`, `indexing`, `paused`, `error`
+- The sift tracks status: `active`, `indexing`, `paused`, `error`
 - Progress tracked via `processed_documents` / `total_documents` counters
-- Schema inference: after first extraction, generate a schema string like "client (string), date (string), amount (number)"
-- All extractions are scoped to an `organization_id` — only visible to authenticated members of that organization
+- Schema inference: after first document processed, generate a schema string like "client (string), date (string), amount (number)"
+- All sifts are scoped to an `organization_id` — only visible to authenticated members of that organization
 
 ## Direct Upload (Deprecated)
 
-`POST /api/extractions/{id}/upload` is kept for backward compatibility but the preferred approach is uploading documents via Folders.
+`POST /api/sifts/{id}/upload` is kept for backward compatibility but the preferred approach is uploading documents via Folders.
 
 ## Auth
 
-All extraction endpoints require authentication (JWT Bearer or `X-API-Key` header). Results are filtered by the caller's `organization_id`.
+All sift endpoints require authentication (JWT Bearer or `X-API-Key` header). Results are filtered by the caller's `organization_id`.
+
+## Frontend Pages
+
+- **Sifts** (`/`) — table of sifts with name, status badge, document count, created date; "New Sift" button
+- **Sift Detail** (`/sifts/:id`) — three tabs:
+  - *Records*: structured table of all extracted data, CSV export button
+  - *Query*: ad-hoc natural language query + named aggregations
+  - *Chat*: conversational interface scoped to this sift's data
+  - Header: sift name (editable), status badge, instructions, schema, progress bar, Reindex / Reset / Delete buttons

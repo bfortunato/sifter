@@ -10,6 +10,7 @@ import {
   queryExtraction,
   reindexExtraction,
   resetExtraction,
+  updateExtraction,
   uploadDocuments,
 } from "@/api/extractions";
 import {
@@ -42,6 +43,18 @@ export const useCreateExtraction = () => {
   return useMutation({
     mutationFn: (payload: CreateExtractionPayload) => createExtraction(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["extractions"] }),
+  });
+};
+
+export const useUpdateExtraction = (id: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { name?: string; extraction_instructions?: string; description?: string }) =>
+      updateExtraction(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["extraction", id] });
+      qc.invalidateQueries({ queryKey: ["extractions"] });
+    },
   });
 };
 

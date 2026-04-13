@@ -27,6 +27,17 @@ export async function createFolder(
   });
 }
 
+export async function updateFolder(
+  folderId: string,
+  payload: { name?: string; description?: string }
+): Promise<Folder> {
+  return apiFetchJson<Folder>(`/api/folders/${folderId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function deleteFolder(folderId: string): Promise<void> {
   await apiFetch(`/api/folders/${folderId}`, { method: "DELETE" });
 }

@@ -6,7 +6,7 @@ import {
   FileUp,
   Link as LinkIcon,
   Loader2,
-  RefreshCw,
+  Pencil,
   Unlink,
 } from "lucide-react";
 import {
@@ -14,12 +14,14 @@ import {
   fetchFolderDocuments,
   linkExtractor,
   unlinkExtractor,
+  updateFolder,
   uploadDocument,
 } from "../api/folders";
 import { fetchExtractions } from "../api/extractions";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Skeleton } from "../components/ui/skeleton";
+import { Input } from "../components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +63,8 @@ export default function FolderDetailPage() {
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [selectedExtractorId, setSelectedExtractorId] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
 
   const { data: folder, isLoading: folderLoading } = useQuery({
     queryKey: ["folder", folderId],
@@ -84,6 +88,15 @@ export default function FolderDetailPage() {
   const { data: allExtractions = [] } = useQuery({
     queryKey: ["extractions"],
     queryFn: fetchExtractions,
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: (name: string) => updateFolder(folderId!, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["folder", folderId] });
+      queryClient.invalidateQueries({ queryKey: ["folders"] });
+      setEditingName(false);
+    },
   });
 
   const linkMutation = useMutation({
@@ -144,7 +157,41 @@ export default function FolderDetailPage() {
     <div className="container mx-auto py-8 max-w-4xl space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">{folder.name}</h1>
+        {editingName ? (
+          <div className="flex items-center gap-2">
+            <Input
+              className="text-2xl font-bold h-auto py-0 px-1 w-64"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && nameInput.trim()) renameMutation.mutate(nameInput.trim());
+                if (e.key === "Escape") setEditingName(false);
+              }}
+              autoFocus
+            />
+            <Button
+              size="sm"
+              onClick={() => nameInput.trim() && renameMutation.mutate(nameInput.trim())}
+              disabled={renameMutation.isPending || !nameInput.trim()}
+            >
+              {renameMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>Cancel</Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">{folder.name}</h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => { setNameInput(folder.name); setEditingName(true); }}
+              title="Rename"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
         {folder.description && (
           <p className="text-muted-foreground">{folder.description}</p>
         )}

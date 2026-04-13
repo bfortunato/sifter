@@ -5,6 +5,7 @@ import {
   CheckCircle,
   Download,
   Loader2,
+  Pencil,
   Plus,
   RefreshCw,
   Trash2,
@@ -42,6 +43,7 @@ import {
   useReindexExtraction,
   useRegenerateAggregation,
   useRunAggregation,
+  useUpdateExtraction,
   useUploadDocuments,
 } from "@/hooks/useExtractions";
 import type { Aggregation, AggregationResult } from "@/api/types";
@@ -258,6 +260,10 @@ export function ExtractionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editInstructions, setEditInstructions] = useState("");
+  const updateMutation = useUpdateExtraction(id!);
 
   const isIndexing = (status: string) => status === "indexing";
 
@@ -285,6 +291,19 @@ export function ExtractionDetailPage() {
   const handleDelete = () => {
     if (!confirm(`Delete "${extraction?.name}" and all its records?`)) return;
     deleteMutation.mutate(id!, { onSuccess: () => navigate("/") });
+  };
+
+  const handleEditOpen = () => {
+    setEditName(extraction?.name ?? "");
+    setEditInstructions(extraction?.extraction_instructions ?? "");
+    setShowEdit(true);
+  };
+
+  const handleEditSave = () => {
+    updateMutation.mutate(
+      { name: editName, extraction_instructions: editInstructions },
+      { onSuccess: () => setShowEdit(false) }
+    );
   };
 
   if (isLoading) {
@@ -325,6 +344,9 @@ export function ExtractionDetailPage() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold truncate">{extraction.name}</h1>
             <StatusBadge status={extraction.status} />
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleEditOpen} title="Edit">
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
           </div>
           {extraction.description && (
             <p className="text-muted-foreground text-sm mt-0.5">{extraction.description}</p>
@@ -404,6 +426,37 @@ export function ExtractionDetailPage() {
           Delete
         </Button>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={showEdit} onOpenChange={setShowEdit}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Extraction</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Instructions</Label>
+              <Textarea
+                value={editInstructions}
+                onChange={(e) => setEditInstructions(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+            <Button
+              onClick={handleEditSave}
+              disabled={!editName.trim() || !editInstructions.trim() || updateMutation.isPending}
+              className="w-full"
+            >
+              {updateMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Tabs */}
       <Tabs defaultValue="records">

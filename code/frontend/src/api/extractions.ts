@@ -22,6 +22,16 @@ export const createExtraction = (payload: CreateExtractionPayload): Promise<Extr
     body: JSON.stringify(payload),
   });
 
+export const updateExtraction = (
+  id: string,
+  payload: { name?: string; extraction_instructions?: string; description?: string }
+): Promise<Extraction> =>
+  apiFetchJson<Extraction>(`${BASE}/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
 export const deleteExtraction = (id: string): Promise<void> =>
   apiFetchJson<void>(`${BASE}/${id}`, { method: "DELETE" });
 

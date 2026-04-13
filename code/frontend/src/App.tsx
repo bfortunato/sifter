@@ -7,6 +7,7 @@ import {
   MessageCircle,
   Settings,
 } from "lucide-react";
+import logo from "@/assets/logo.svg";
 import { SiftsPage } from "@/pages/SiftsPage";
 import { SiftDetailPage } from "@/pages/SiftDetailPage";
 import { ChatPage } from "@/pages/ChatPage";
@@ -42,9 +43,10 @@ function Sidebar() {
       <div className="px-4 py-4">
         <Link
           to="/"
-          className="font-bold text-lg tracking-tight flex items-center gap-2"
+          className="font-bold text-lg tracking-tight flex items-center gap-2.5"
         >
-          <span className="text-primary">⬡</span> Sifter
+          <img src={logo} alt="Sifter" className="h-7 w-7" />
+          <span className="text-primary">Sifter</span>
         </Link>
       </div>
 

@@ -308,7 +308,7 @@ export function SiftDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="container py-8 max-w-5xl space-y-4">
+      <div className="px-6 py-8 max-w-5xl mx-auto space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-64 w-full" />
@@ -318,7 +318,7 @@ export function SiftDetailPage() {
 
   if (error || !extraction) {
     return (
-      <div className="container py-8 max-w-5xl">
+      <div className="px-6 py-8 max-w-5xl mx-auto">
         <Alert variant="destructive">
           <AlertDescription>
             {error ? (error as Error).message : "Sift not found"}
@@ -334,7 +334,7 @@ export function SiftDetailPage() {
       : 0;
 
   return (
-    <div className="container py-8 max-w-5xl space-y-6">
+    <div className="px-6 py-8 max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/")}>

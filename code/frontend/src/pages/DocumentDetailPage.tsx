@@ -52,7 +52,7 @@ export default function DocumentDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 max-w-4xl space-y-4">
+      <div className="px-6 py-8 max-w-4xl mx-auto space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-32 w-full" />
       </div>
@@ -61,14 +61,14 @@ export default function DocumentDetailPage() {
 
   if (!doc) {
     return (
-      <div className="container mx-auto py-8 max-w-4xl">
+      <div className="px-6 py-8 max-w-4xl mx-auto">
         <p className="text-destructive">Document not found.</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-4xl space-y-8">
+    <div className="px-6 py-8 max-w-4xl mx-auto space-y-8">
       {/* Document metadata */}
       <div>
         <h1 className="text-2xl font-bold">{doc.filename}</h1>

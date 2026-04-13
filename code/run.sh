@@ -92,7 +92,7 @@ fi
 
 # ---- Start API ----
 info "Starting API server on http://localhost:${SIFTER_PORT:-8000} ..."
-uv run python -m sifter.main &
+uv run uvicorn sifter.main:app --host 0.0.0.0 --port "${SIFTER_PORT:-8000}" --reload &
 PIDS+=($!)
 API_PID=$!
 
@@ -108,7 +108,7 @@ done
 
 # ---- Start Frontend ----
 info "Starting frontend dev server on http://localhost:3000 ..."
-(cd frontend && npm run dev -- --host 0.0.0.0) &
+(cd frontend && npm run dev -- --host 0.0.0.0 --clearScreen false) &
 PIDS+=($!)
 
 echo ""

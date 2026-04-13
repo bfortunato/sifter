@@ -72,8 +72,9 @@ export default function FolderDetailPage() {
     queryKey: ["folder-documents", folderId],
     queryFn: () => fetchFolderDocuments(folderId!),
     enabled: !!folderId,
-    refetchInterval: (data) => {
-      const hasProcessing = data?.some((d: DocumentWithStatuses) =>
+    refetchInterval: (query) => {
+      const docs = query.state.data as DocumentWithStatuses[] | undefined;
+      const hasProcessing = docs?.some((d) =>
         d.extraction_statuses?.some((s) => s.status === "processing" || s.status === "pending")
       );
       return hasProcessing ? 2000 : false;

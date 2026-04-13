@@ -17,6 +17,7 @@ status: synced
 - **Validation**: Pydantic v2
 - **Settings**: pydantic-settings with `SIFTER_` env prefix
 - **Package**: `pyproject.toml` (publishable as `sifter-ai` on PyPI)
+- **SDK**: pure HTTP client (`httpx`) wrapping the REST API — no direct mode
 
 ## Frontend
 
@@ -58,6 +59,14 @@ A FastAPI dependency `get_current_principal()` is applied to all protected route
 - Each worker: `task = await queue.get()` → set status=processing → run extraction → set status=done/error → `queue.task_done()`
 - On document upload to a folder: one `DocumentExtractionStatus(pending)` per linked extractor created, then all enqueued
 - On shutdown: drain queue gracefully in lifespan cleanup
+
+## Event System
+
+- Events are emitted by the server on document processing, sift completion, and errors.
+- **SDK callbacks**: the `SiftHandle.on()` / `FolderHandle.on()` methods register Python callbacks. Wildcard matching (`*` single segment, `**` any segments) runs client-side during `wait()` polling.
+- **Webhooks**: stored in a `webhooks` collection (`org_id`, `events` pattern list, `url`, optional `sift_id` filter). On each event the server fans out to all matching webhooks via background `httpx` POST calls.
+- Event types: `sift.document.processed`, `sift.completed`, `sift.error`, `folder.document.uploaded`.
+- Wildcard matching is evaluated server-side for webhooks using the same pattern rules.
 
 ## Async Aggregation Pipeline Generation
 

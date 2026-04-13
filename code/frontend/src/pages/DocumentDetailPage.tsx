@@ -31,8 +31,9 @@ export default function DocumentDetailPage() {
     queryKey: ["document", documentId],
     queryFn: () => fetchDocument(documentId!),
     enabled: !!documentId,
-    refetchInterval: (data) => {
-      const hasProcessing = data?.extraction_statuses?.some(
+    refetchInterval: (query: any) => {
+      const doc = query.state.data;
+      const hasProcessing = doc?.extraction_statuses?.some(
         (s: DocumentExtractionStatus) => s.status === "processing" || s.status === "pending"
       );
       return hasProcessing ? 2000 : false;

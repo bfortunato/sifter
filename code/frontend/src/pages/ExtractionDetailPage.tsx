@@ -168,8 +168,8 @@ function AggregationsPanel({ extractionId }: { extractionId: string }) {
   const [newQuery, setNewQuery] = useState("");
 
   const { data: aggregations = [] } = useAggregations(extractionId, {
-    refetchInterval: (data) => {
-      const hasGenerating = (data as Aggregation[] | undefined)?.some((a) => a.status === "generating");
+    refetchInterval: (query: any) => {
+      const hasGenerating = (query.state.data as Aggregation[] | undefined)?.some((a: Aggregation) => a.status === "generating");
       return hasGenerating ? 2000 : false;
     },
   });

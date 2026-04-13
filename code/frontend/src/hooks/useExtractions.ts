@@ -99,7 +99,7 @@ export const useExtractionChat = (extractionId: string) =>
       chatWithExtraction(extractionId, message, history),
   });
 
-export const useAggregations = (extractionId: string, options?: { refetchInterval?: number | false }) =>
+export const useAggregations = (extractionId: string, options?: { refetchInterval?: number | false | ((query: any) => number | false) }) =>
   useQuery({
     queryKey: ["aggregations", extractionId],
     queryFn: () => fetchAggregations(extractionId),

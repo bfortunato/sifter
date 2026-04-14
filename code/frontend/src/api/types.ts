@@ -35,8 +35,6 @@ export interface APIKey {
   id: string;
   name: string;
   key_prefix: string;
-  organization_id: string;
-  created_by: string;
   created_at: string;
   last_used_at: string | null;
   is_active: boolean;
@@ -48,7 +46,6 @@ export type SiftStatus = "active" | "indexing" | "paused" | "error";
 
 export interface Sift {
   id: string;
-  organization_id: string | null;
   name: string;
   description: string;
   instructions: string;
@@ -86,7 +83,6 @@ export type AggregationStatus = "generating" | "ready" | "active" | "error";
 
 export interface Aggregation {
   id: string;
-  organization_id: string | null;
   name: string;
   description: string;
   sift_id: string;
@@ -137,7 +133,6 @@ export interface ChatMessage {
 
 export interface Folder {
   id: string;
-  organization_id: string;
   name: string;
   description: string;
   document_count: number;
@@ -153,13 +148,11 @@ export interface FolderExtractor {
 
 export interface Document {
   id: string;
-  organization_id: string;
   folder_id: string;
   filename: string;
   original_filename: string;
   content_type: string;
   size_bytes: number;
-  uploaded_by: string;
   uploaded_at: string;
   storage_path?: string;
 }

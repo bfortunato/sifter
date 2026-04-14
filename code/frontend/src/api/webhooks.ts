@@ -3,7 +3,6 @@ import type { PaginatedResponse } from "./types";
 
 export interface Webhook {
   id: string;
-  organization_id: string;
   events: string[];
   url: string;
   sift_id: string | null;

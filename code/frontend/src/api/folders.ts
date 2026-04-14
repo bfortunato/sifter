@@ -71,7 +71,6 @@ export interface DocumentWithStatuses {
   original_filename: string;
   content_type: string;
   size_bytes: number;
-  uploaded_by: string;
   uploaded_at: string;
   sift_statuses: DocumentSiftStatus[];
 }

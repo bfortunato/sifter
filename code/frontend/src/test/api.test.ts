@@ -1,6 +1,11 @@
 /**
  * Frontend API layer tests.
  * Tests the fetch functions in src/api/ using vi.stubGlobal to mock fetch.
+ *
+ * Notes:
+ * - All API calls go through apiFetch, which always calls fetch(url, { headers })
+ *   so fetch assertions use expect.objectContaining({}) to ignore headers.
+ * - List endpoints return paginated { items, total, limit, offset }.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -31,6 +36,10 @@ function mockFetch(status: number, body: unknown) {
   });
 }
 
+function paginated<T>(items: T[]) {
+  return { items, total: items.length, limit: 1000, offset: 0 };
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });
@@ -42,10 +51,13 @@ describe("fetchSifts", () => {
     const data = [
       { id: "1", name: "Invoices", status: "active", processed_documents: 5 },
     ];
-    vi.stubGlobal("fetch", mockFetch(200, data));
+    vi.stubGlobal("fetch", mockFetch(200, paginated(data)));
     const result = await fetchSifts();
     expect(result).toEqual(data);
-    expect(fetch).toHaveBeenCalledWith("/api/sifts");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sifts?limit=1000",
+      expect.objectContaining({})
+    );
   });
 
   it("throws on error response", async () => {
@@ -60,7 +72,10 @@ describe("fetchSift", () => {
     vi.stubGlobal("fetch", mockFetch(200, data));
     const result = await fetchSift("abc123");
     expect(result).toEqual(data);
-    expect(fetch).toHaveBeenCalledWith("/api/sifts/abc123");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sifts/abc123",
+      expect.objectContaining({})
+    );
   });
 
   it("throws on 404", async () => {
@@ -84,7 +99,6 @@ describe("createSift", () => {
       "/api/sifts",
       expect.objectContaining({
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "New", instructions: "Extract: client" }),
       })
     );
@@ -95,7 +109,10 @@ describe("deleteSift", () => {
   it("sends DELETE request", async () => {
     vi.stubGlobal("fetch", mockFetch(200, { deleted: true }));
     await deleteSift("abc");
-    expect(fetch).toHaveBeenCalledWith("/api/sifts/abc", { method: "DELETE" });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sifts/abc",
+      expect.objectContaining({ method: "DELETE" })
+    );
   });
 });
 
@@ -111,10 +128,13 @@ describe("fetchSiftRecords", () => {
         created_at: "2024-01-01T00:00:00Z",
       },
     ];
-    vi.stubGlobal("fetch", mockFetch(200, records));
+    vi.stubGlobal("fetch", mockFetch(200, paginated(records)));
     const result = await fetchSiftRecords("ext1");
     expect(result).toEqual(records);
-    expect(fetch).toHaveBeenCalledWith("/api/sifts/ext1/records");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/sifts/ext1/records?limit=1000",
+      expect.objectContaining({})
+    );
   });
 });
 
@@ -143,16 +163,22 @@ describe("querySift", () => {
 describe("fetchAggregations", () => {
   it("fetches all aggregations", async () => {
     const data = [{ id: "a1", name: "My Agg", status: "active" }];
-    vi.stubGlobal("fetch", mockFetch(200, data));
+    vi.stubGlobal("fetch", mockFetch(200, paginated(data)));
     const result = await fetchAggregations();
     expect(result).toEqual(data);
-    expect(fetch).toHaveBeenCalledWith("/api/aggregations");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/aggregations?limit=1000",
+      expect.objectContaining({})
+    );
   });
 
   it("filters by sift_id when provided", async () => {
-    vi.stubGlobal("fetch", mockFetch(200, []));
+    vi.stubGlobal("fetch", mockFetch(200, paginated([])));
     await fetchAggregations("ext42");
-    expect(fetch).toHaveBeenCalledWith("/api/aggregations?sift_id=ext42");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/aggregations?sift_id=ext42&limit=1000",
+      expect.objectContaining({})
+    );
   });
 });
 
@@ -188,7 +214,10 @@ describe("fetchAggregationResult", () => {
 
     const result = await fetchAggregationResult("agg1");
     expect(result.results).toEqual([{ _id: "Acme", total: 5000 }]);
-    expect(fetch).toHaveBeenCalledWith("/api/aggregations/agg1/result");
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/aggregations/agg1/result",
+      expect.objectContaining({})
+    );
   });
 });
 

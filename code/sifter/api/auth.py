@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from sifter.auth import Principal, create_access_token, get_current_principal
 from sifter.db import get_db
+from sifter.limiter import limiter
 from sifter.services.auth_service import AuthService
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -33,7 +34,8 @@ def _user_dict(user) -> dict:
 
 
 @router.post("/register")
-async def register(body: RegisterRequest, db=Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, body: RegisterRequest, db=Depends(get_db)):
     svc = AuthService(db)
     try:
         user, org, token = await svc.register(body.email, body.password, body.full_name)
@@ -48,7 +50,8 @@ async def register(body: RegisterRequest, db=Depends(get_db)):
 
 
 @router.post("/login")
-async def login(body: LoginRequest, db=Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, db=Depends(get_db)):
     svc = AuthService(db)
     try:
         user, token = await svc.login(body.email, body.password)

@@ -38,15 +38,17 @@ async def create_aggregation(
     return _agg_to_dict(aggregation)
 
 
-@router.get("", response_model=list[dict])
+@router.get("", response_model=dict)
 async def list_aggregations(
     sift_id: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = AggregationService(db)
-    aggregations = await svc.list_all(sift_id=sift_id, org_id=principal.org_id)
-    return [_agg_to_dict(a) for a in aggregations]
+    aggregations, total = await svc.list_all(sift_id=sift_id, org_id=principal.org_id, skip=offset, limit=limit)
+    return {"items": [_agg_to_dict(a) for a in aggregations], "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/{agg_id}", response_model=dict)

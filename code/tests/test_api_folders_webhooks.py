@@ -103,7 +103,7 @@ async def test_create_folder(client):
 async def test_list_folders_empty(client):
     r = await client.get("/api/folders")
     assert r.status_code == 200
-    assert r.json() == []
+    assert r.json()["items"] == []
 
 
 async def test_list_folders(client):
@@ -111,7 +111,7 @@ async def test_list_folders(client):
         await client.post("/api/folders", json={"name": name})
     r = await client.get("/api/folders")
     assert r.status_code == 200
-    assert len(r.json()) == 3
+    assert len(r.json()["items"]) == 3
 
 
 async def test_get_folder(client):
@@ -276,7 +276,7 @@ async def test_list_documents(client):
 
     r = await client.get(f"/api/folders/{fid}/documents")
     assert r.status_code == 200
-    assert len(r.json()) == 2
+    assert len(r.json()["items"]) == 2
 
 
 async def test_upload_folder_not_found(client):
@@ -318,7 +318,7 @@ async def test_create_webhook_with_sift_filter(client):
 async def test_list_webhooks_empty(client):
     r = await client.get("/api/webhooks")
     assert r.status_code == 200
-    assert r.json() == []
+    assert r.json()["items"] == []
 
 
 async def test_list_webhooks(client):
@@ -329,7 +329,7 @@ async def test_list_webhooks(client):
         })
     r = await client.get("/api/webhooks")
     assert r.status_code == 200
-    assert len(r.json()) == 3
+    assert len(r.json()["items"]) == 3
 
 
 async def test_delete_webhook(client):
@@ -343,7 +343,7 @@ async def test_delete_webhook(client):
     assert r2.status_code == 204
 
     r3 = await client.get("/api/webhooks")
-    ids = [h["id"] for h in r3.json()]
+    ids = [h["id"] for h in r3.json()["items"]]
     assert hook_id not in ids
 
 

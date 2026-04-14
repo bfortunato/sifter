@@ -1,11 +1,11 @@
 import { apiFetchJson } from "../lib/apiFetch";
-import type { Aggregation, AggregationResult, CreateAggregationPayload } from "./types";
+import type { Aggregation, AggregationResult, CreateAggregationPayload, PaginatedResponse } from "./types";
 
 const BASE = "/api/aggregations";
 
 export const fetchAggregations = (siftId?: string): Promise<Aggregation[]> => {
-  const url = siftId ? `${BASE}?sift_id=${siftId}` : BASE;
-  return apiFetchJson<Aggregation[]>(url);
+  const url = siftId ? `${BASE}?sift_id=${siftId}&limit=1000` : `${BASE}?limit=1000`;
+  return apiFetchJson<PaginatedResponse<Aggregation>>(url).then((r) => r.items);
 };
 
 export const fetchAggregation = (id: string): Promise<Aggregation> =>

@@ -73,9 +73,13 @@ class DocumentService:
         folder.id = str(result.inserted_id)
         return folder
 
-    async def list_folders(self, org_id: str) -> list[Folder]:
-        docs = await self.db["folders"].find({"organization_id": org_id}).to_list(length=None)
-        return [Folder.from_mongo(d) for d in docs]
+    async def list_folders(
+        self, org_id: str, skip: int = 0, limit: int = 50
+    ) -> tuple[list[Folder], int]:
+        query = {"organization_id": org_id}
+        total = await self.db["folders"].count_documents(query)
+        docs = await self.db["folders"].find(query).skip(skip).limit(limit).to_list(length=limit)
+        return [Folder.from_mongo(d) for d in docs], total
 
     async def get_folder(self, folder_id: str, org_id: str) -> Optional[Folder]:
         doc = await self.db["folders"].find_one(
@@ -179,11 +183,13 @@ class DocumentService:
         logger.info("document_saved", doc_id=doc.id, folder_id=folder_id, filename=filename)
         return doc
 
-    async def list_documents(self, folder_id: str, org_id: str) -> list[dict[str, Any]]:
+    async def list_documents(
+        self, folder_id: str, org_id: str, skip: int = 0, limit: int = 50
+    ) -> tuple[list[dict[str, Any]], int]:
         """List documents with per-sift status for each."""
-        docs = await self.db["documents"].find(
-            {"folder_id": folder_id, "organization_id": org_id}
-        ).to_list(length=None)
+        query = {"folder_id": folder_id, "organization_id": org_id}
+        total = await self.db["documents"].count_documents(query)
+        docs = await self.db["documents"].find(query).skip(skip).limit(limit).to_list(length=limit)
 
         result = []
         for doc in docs:
@@ -211,7 +217,7 @@ class DocumentService:
                     for s in statuses
                 ],
             })
-        return result
+        return result, total
 
     async def get_document(self, document_id: str, org_id: str) -> Optional[Document]:
         doc = await self.db["documents"].find_one(

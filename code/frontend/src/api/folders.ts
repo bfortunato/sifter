@@ -4,12 +4,13 @@ import {
   DocumentSiftStatus,
   Folder,
   FolderExtractor,
+  PaginatedResponse,
 } from "./types";
 
 // ---- Folders ----
 
 export async function fetchFolders(): Promise<Folder[]> {
-  return apiFetchJson<Folder[]>("/api/folders");
+  return apiFetchJson<PaginatedResponse<Folder>>("/api/folders?limit=1000").then((r) => r.items);
 }
 
 export async function fetchFolder(folderId: string): Promise<Folder & { extractors: FolderExtractor[] }> {
@@ -78,7 +79,7 @@ export interface DocumentWithStatuses {
 export async function fetchFolderDocuments(
   folderId: string
 ): Promise<DocumentWithStatuses[]> {
-  return apiFetchJson<DocumentWithStatuses[]>(`/api/folders/${folderId}/documents`);
+  return apiFetchJson<PaginatedResponse<DocumentWithStatuses>>(`/api/folders/${folderId}/documents?limit=1000`).then((r) => r.items);
 }
 
 export async function uploadDocument(

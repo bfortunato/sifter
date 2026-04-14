@@ -2,6 +2,7 @@ import { apiFetch, apiFetchJson } from "../lib/apiFetch";
 import type {
   ChatResponse,
   CreateSiftPayload,
+  PaginatedResponse,
   Sift,
   SiftRecord,
   QueryResult,
@@ -10,7 +11,7 @@ import type {
 const BASE = "/api/sifts";
 
 export const fetchSifts = (): Promise<Sift[]> =>
-  apiFetchJson<Sift[]>(BASE);
+  apiFetchJson<PaginatedResponse<Sift>>(`${BASE}?limit=1000`).then((r) => r.items);
 
 export const fetchSift = (id: string): Promise<Sift> =>
   apiFetchJson<Sift>(`${BASE}/${id}`);
@@ -45,7 +46,7 @@ export const resetSift = (id: string): Promise<Sift> =>
   apiFetchJson<Sift>(`${BASE}/${id}/reset`, { method: "POST" });
 
 export const fetchSiftRecords = (id: string): Promise<SiftRecord[]> =>
-  apiFetchJson<SiftRecord[]>(`${BASE}/${id}/records`);
+  apiFetchJson<PaginatedResponse<SiftRecord>>(`${BASE}/${id}/records?limit=1000`).then((r) => r.items);
 
 export const exportSiftCsv = async (id: string, name: string): Promise<void> => {
   const res = await apiFetch(`${BASE}/${id}/records/csv`);

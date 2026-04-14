@@ -31,12 +31,14 @@ def _wh_dict(wh) -> dict:
 
 @router.get("")
 async def list_webhooks(
+    limit: int = 50,
+    offset: int = 0,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = WebhookService(db)
-    hooks = await svc.list_all(principal.org_id)
-    return [_wh_dict(h) for h in hooks]
+    hooks, total = await svc.list_all(principal.org_id, skip=offset, limit=limit)
+    return {"items": [_wh_dict(h) for h in hooks], "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

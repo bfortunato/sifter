@@ -83,7 +83,7 @@ async def test_create_extraction_missing_instructions(client):
 async def test_list_extractions_empty(client):
     r = await client.get("/api/sifts")
     assert r.status_code == 200
-    assert r.json() == []
+    assert r.json()["items"] == []
 
 
 async def test_list_extractions(client):
@@ -94,7 +94,7 @@ async def test_list_extractions(client):
         })
     r = await client.get("/api/sifts")
     assert r.status_code == 200
-    assert len(r.json()) == 3
+    assert len(r.json()["items"]) == 3
 
 
 async def test_get_extraction(client):
@@ -153,7 +153,7 @@ async def test_get_records_empty(client):
 
     r2 = await client.get(f"/api/sifts/{eid}/records")
     assert r2.status_code == 200
-    assert r2.json() == []
+    assert r2.json()["items"] == []
 
 
 async def _insert_records(extraction_id, records, org_id=TEST_ORG_ID):
@@ -179,7 +179,7 @@ async def test_get_records_with_data(client):
 
     r2 = await client.get(f"/api/sifts/{eid}/records")
     assert r2.status_code == 200
-    records = r2.json()
+    records = r2.json()["items"]
     assert len(records) == 2
     clients = {rec["extracted_data"]["client"] for rec in records}
     assert clients == {"Acme Corp", "Globex"}
@@ -268,7 +268,7 @@ async def test_create_and_list_aggregation(client):
     # List
     r3 = await client.get(f"/api/aggregations?sift_id={eid}")
     assert r3.status_code == 200
-    assert len(r3.json()) == 1
+    assert len(r3.json()["items"]) == 1
 
 
 async def test_aggregation_execute(client):

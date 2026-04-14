@@ -7,13 +7,17 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from .api import aggregations, auth, chat, documents, sifts, folders, keys, orgs, webhooks
 from .config import config
 from .db import close as close_db, get_db
+from .limiter import limiter
 from .services.aggregation_service import AggregationService
 from .services.auth_service import AuthService
-from .services.document_processor import start_workers
+from .services.document_processor import ensure_indexes as ensure_queue_indexes, start_workers
 from .services.document_service import DocumentService
 from .services.extraction_service import SiftService
 from .services.webhook_service import WebhookService
@@ -47,9 +51,10 @@ async def lifespan(app: FastAPI):
     await AuthService(db).ensure_indexes()
     await DocumentService(db).ensure_indexes()
     await WebhookService(db).ensure_indexes()
+    await ensure_queue_indexes(db)
 
     # Start background document processing workers
-    _worker_tasks = start_workers(config.max_workers)
+    _worker_tasks = start_workers(config.max_workers, db)
 
     logger.info("sifter_ready")
 
@@ -72,6 +77,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.cors_origins,
@@ -93,7 +102,35 @@ app.include_router(webhooks.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.1.0"}
+    db = get_db()
+    components = {}
+
+    # Check DB
+    try:
+        await db.command("ping")
+        components["database"] = "ok"
+    except Exception as e:
+        components["database"] = f"error: {str(e)}"
+
+    # Queue depth
+    try:
+        pending = await db["processing_queue"].count_documents({"status": "pending"})
+        processing = await db["processing_queue"].count_documents({"status": "processing"})
+        components["queue"] = {"status": "ok", "pending": pending, "processing": processing}
+    except Exception:
+        components["queue"] = {"status": "error"}
+
+    overall = "ok" if all(
+        (v == "ok" if isinstance(v, str) else v.get("status") == "ok")
+        for v in components.values()
+    ) else "error"
+
+    status_code = 200 if overall == "ok" else 503
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=status_code,
+        content={"status": overall, "version": "0.1.0", "components": components}
+    )
 
 
 # Serve frontend static files if built

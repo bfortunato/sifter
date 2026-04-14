@@ -65,14 +65,16 @@ async def create_sift(
     return _sift_to_dict(sift)
 
 
-@router.get("", response_model=list[dict])
+@router.get("", response_model=dict)
 async def list_sifts(
+    limit: int = 50,
+    offset: int = 0,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = SiftService(db)
-    sifts = await svc.list_all(org_id=principal.org_id)
-    return [_sift_to_dict(s) for s in sifts]
+    sifts, total = await svc.list_all(org_id=principal.org_id, skip=offset, limit=limit)
+    return {"items": [_sift_to_dict(s) for s in sifts], "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/{sift_id}", response_model=dict)
@@ -213,7 +215,7 @@ async def reindex_sift(
             {"document_id": doc_id, "sift_id": sift_id},
             {"$set": {"status": DocumentSiftStatusEnum.PENDING, "error_message": None, "sift_record_id": None}},
         )
-        enqueue(doc_id, sift_id, storage_path, principal.org_id)
+        await enqueue(doc_id, sift_id, storage_path, principal.org_id)
 
     # Re-process direct-uploaded files via background task (old path)
     if direct_paths:
@@ -241,6 +243,8 @@ async def reset_sift(
 @router.get("/{sift_id}/records")
 async def get_records(
     sift_id: str,
+    limit: int = 50,
+    offset: int = 0,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
@@ -248,7 +252,8 @@ async def get_records(
     sift = await svc.get(sift_id, org_id=principal.org_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
-    return await svc.get_records(sift_id, org_id=principal.org_id)
+    records, total = await svc.get_records(sift_id, org_id=principal.org_id, skip=offset, limit=limit)
+    return {"items": records, "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/{sift_id}/records/csv")

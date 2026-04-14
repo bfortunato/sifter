@@ -90,15 +90,18 @@ class AggregationService:
         self,
         sift_id: Optional[str] = None,
         org_id: Optional[str] = None,
-    ) -> list[Aggregation]:
+        skip: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[Aggregation], int]:
         query: dict = {}
         if sift_id:
             query["sift_id"] = sift_id
         if org_id:
             query["organization_id"] = org_id
-        cursor = self.col.find(query).sort("created_at", -1)
-        docs = await cursor.to_list(length=None)
-        return [Aggregation.from_mongo(d) for d in docs]
+        total = await self.col.count_documents(query)
+        cursor = self.col.find(query).sort("created_at", -1).skip(skip).limit(limit)
+        docs = await cursor.to_list(length=limit)
+        return [Aggregation.from_mongo(d) for d in docs], total
 
     async def delete(self, agg_id: str, org_id: Optional[str] = None) -> bool:
         query: dict = {"_id": ObjectId(agg_id)}

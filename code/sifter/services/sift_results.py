@@ -56,13 +56,20 @@ class SiftResultsService:
         logger.info("result_inserted", sift_id=sift_id, document_id=document_id)
         return result
 
-    async def get_results(self, sift_id: str, org_id: Optional[str] = None) -> list[SiftResult]:
+    async def get_results(
+        self,
+        sift_id: str,
+        org_id: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[SiftResult], int]:
         query: dict = {"sift_id": sift_id}
         if org_id:
             query["organization_id"] = org_id
-        cursor = self.col.find(query)
-        docs = await cursor.to_list(length=None)
-        return [SiftResult.from_mongo(d) for d in docs]
+        total = await self.col.count_documents(query)
+        cursor = self.col.find(query).skip(skip).limit(limit)
+        docs = await cursor.to_list(length=limit)
+        return [SiftResult.from_mongo(d) for d in docs], total
 
     async def get_result(self, result_id: str) -> SiftResult | None:
         doc = await self.col.find_one({"_id": ObjectId(result_id)})
@@ -116,7 +123,7 @@ class SiftResultsService:
         return [_serialize_doc(r) for r in results]
 
     async def export_csv(self, sift_id: str, org_id: Optional[str] = None) -> str:
-        results = await self.get_results(sift_id, org_id=org_id)
+        results, _ = await self.get_results(sift_id, org_id=org_id, skip=0, limit=100_000)
         if not results:
             return ""
 

@@ -59,13 +59,19 @@ class SiftService:
         doc = await self.col.find_one(query)
         return Sift.from_mongo(doc) if doc else None
 
-    async def list_all(self, org_id: Optional[str] = None) -> list[Sift]:
+    async def list_all(
+        self,
+        org_id: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[Sift], int]:
         query: dict = {}
         if org_id:
             query["organization_id"] = org_id
-        cursor = self.col.find(query).sort("created_at", -1)
-        docs = await cursor.to_list(length=None)
-        return [Sift.from_mongo(d) for d in docs]
+        total = await self.col.count_documents(query)
+        cursor = self.col.find(query).sort("created_at", -1).skip(skip).limit(limit)
+        docs = await cursor.to_list(length=limit)
+        return [Sift.from_mongo(d) for d in docs], total
 
     async def delete(self, sift_id: str, org_id: Optional[str] = None) -> bool:
         query: dict = {"_id": ObjectId(sift_id)}
@@ -226,8 +232,14 @@ class SiftService:
         )
         await self.process_documents(sift_id, file_paths)
 
-    async def get_records(self, sift_id: str, org_id: Optional[str] = None) -> list[dict[str, Any]]:
-        results = await self.results_service.get_results(sift_id, org_id=org_id)
+    async def get_records(
+        self,
+        sift_id: str,
+        org_id: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[dict[str, Any]], int]:
+        results, total = await self.results_service.get_results(sift_id, org_id=org_id, skip=skip, limit=limit)
         return [
             {
                 "id": r.id,
@@ -238,7 +250,7 @@ class SiftService:
                 "created_at": r.created_at.isoformat(),
             }
             for r in results
-        ]
+        ], total
 
 
 def _infer_schema(extracted_data: dict[str, Any]) -> str:

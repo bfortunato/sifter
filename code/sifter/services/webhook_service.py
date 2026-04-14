@@ -66,10 +66,14 @@ class WebhookService:
         wh.id = str(result.inserted_id)
         return wh
 
-    async def list_all(self, org_id: str) -> list[Webhook]:
-        cursor = self.db["webhooks"].find({"organization_id": org_id})
-        docs = await cursor.to_list(length=None)
-        return [Webhook.from_mongo(d) for d in docs]
+    async def list_all(
+        self, org_id: str, skip: int = 0, limit: int = 50
+    ) -> tuple[list[Webhook], int]:
+        query = {"organization_id": org_id}
+        total = await self.db["webhooks"].count_documents(query)
+        cursor = self.db["webhooks"].find(query).skip(skip).limit(limit)
+        docs = await cursor.to_list(length=limit)
+        return [Webhook.from_mongo(d) for d in docs], total
 
     async def delete(self, hook_id: str, org_id: str) -> bool:
         result = await self.db["webhooks"].delete_one(

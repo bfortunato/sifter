@@ -40,8 +40,11 @@ async def enqueue(
     org_id: str,
 ) -> None:
     """Insert a ProcessingTask into MongoDB processing_queue."""
+    global _db
     if _db is None:
-        raise RuntimeError("document_processor not initialised — call start_workers first")
+        # Lazy init: fall back to the global DB connection (e.g. during tests)
+        from ..db import get_db
+        _db = get_db()
     task = ProcessingTask(
         document_id=document_id,
         sift_id=sift_id,

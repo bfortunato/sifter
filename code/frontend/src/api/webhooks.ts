@@ -1,4 +1,5 @@
 import { apiFetch, apiFetchJson } from "../lib/apiFetch";
+import type { PaginatedResponse } from "./types";
 
 export interface Webhook {
   id: string;
@@ -10,7 +11,7 @@ export interface Webhook {
 }
 
 export const fetchWebhooks = (): Promise<Webhook[]> =>
-  apiFetchJson<Webhook[]>("/api/webhooks");
+  apiFetchJson<PaginatedResponse<Webhook>>("/api/webhooks?limit=1000").then((r) => r.items);
 
 export const createWebhook = (payload: {
   events: string[];

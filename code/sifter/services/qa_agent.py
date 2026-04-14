@@ -61,7 +61,7 @@ async def chat(
             extraction_id = None  # can't query a nonexistent extraction
     else:
         # Global chat — list available extractions for context
-        sifts = await extraction_svc.list_all(org_id=org_id)
+        sifts, _ = await extraction_svc.list_all(org_id=org_id)
         if sifts:
             names = ", ".join(f'"{e.name}" (id: {e.id})' for e in sifts[:5])
             global_context = f"\n## Available Sifts\n{names}\n"

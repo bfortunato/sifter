@@ -44,12 +44,14 @@ def _folder_dict(f: Folder) -> dict:
 
 @router.get("")
 async def list_folders(
+    limit: int = 50,
+    offset: int = 0,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = DocumentService(db)
-    folders = await svc.list_folders(principal.org_id)
-    return [_folder_dict(f) for f in folders]
+    folders, total = await svc.list_folders(principal.org_id, skip=offset, limit=limit)
+    return {"items": [_folder_dict(f) for f in folders], "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -170,7 +172,7 @@ async def link_sift(
         if existing:
             continue
         await svc.create_sift_status(doc_id, body.sift_id, principal.org_id)
-        enqueue(doc_id, body.sift_id, storage_path, principal.org_id)
+        await enqueue(doc_id, body.sift_id, storage_path, principal.org_id)
         enqueued += 1
 
     return {
@@ -255,7 +257,7 @@ async def link_extractor(
         if existing:
             continue
         await svc.create_sift_status(doc_id, sift_id, principal.org_id)
-        enqueue(doc_id, sift_id, storage_path, principal.org_id)
+        await enqueue(doc_id, sift_id, storage_path, principal.org_id)
         enqueued += 1
 
     return {
@@ -286,6 +288,8 @@ async def unlink_extractor(
 @router.get("/{folder_id}/documents")
 async def list_documents(
     folder_id: str,
+    limit: int = 50,
+    offset: int = 0,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
@@ -293,7 +297,8 @@ async def list_documents(
     folder = await svc.get_folder(folder_id, principal.org_id)
     if not folder:
         raise HTTPException(status_code=404, detail="Folder not found")
-    return await svc.list_documents(folder_id, principal.org_id)
+    documents, total = await svc.list_documents(folder_id, principal.org_id, skip=offset, limit=limit)
+    return {"items": documents, "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("/{folder_id}/documents", status_code=status.HTTP_202_ACCEPTED)
@@ -333,7 +338,7 @@ async def upload_document(
     enqueued = []
     for link in links:
         await svc.create_sift_status(doc.id, link.sift_id, principal.org_id)
-        enqueue(doc.id, link.sift_id, doc.storage_path, principal.org_id)
+        await enqueue(doc.id, link.sift_id, doc.storage_path, principal.org_id)
         enqueued.append(link.sift_id)
 
     return {

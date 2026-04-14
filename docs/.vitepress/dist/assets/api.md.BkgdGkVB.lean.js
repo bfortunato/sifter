@@ -1,1 +1,0 @@
-import{_ as e,o as a,c as s,ae as r}from"./chunks/framework.Czhw_PXq.js";const c=JSON.parse('{"title":"REST API Reference","description":"","frontmatter":{},"headers":[],"relativePath":"api.md","filePath":"api.md"}'),o={name:"api.md"};function i(d,t,n,p,h,l){return a(),s("div",null,[...t[0]||(t[0]=[r("",149)])])}const u=e(o,[["render",i]]);export{c as __pageData,u as default};

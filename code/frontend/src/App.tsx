@@ -11,11 +11,12 @@ import logo from "@/assets/logo.svg";
 import { SiftsPage } from "@/pages/SiftsPage";
 import { SiftDetailPage } from "@/pages/SiftDetailPage";
 import { ChatPage } from "@/pages/ChatPage";
-import SetupPage from "@/pages/SetupPage";
-import LandingPage from "@/pages/LandingPage";
+import LoginPage from "@/pages/LoginPage";
+import RegisterPage from "@/pages/RegisterPage";
 import SettingsPage from "@/pages/SettingsPage";
 import FolderBrowserPage from "@/pages/FolderBrowserPage";
 import DocumentDetailPage from "@/pages/DocumentDetailPage";
+import LandingPage from "@/pages/LandingPage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthProvider, useAuthContext } from "@/context/AuthContext";
 
@@ -33,7 +34,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 function Sidebar() {
-  const { isAuthenticated, logout } = useAuthContext();
+  const { isAuthenticated, user, logout } = useAuthContext();
 
   if (!isAuthenticated) return null;
 
@@ -68,6 +69,11 @@ function Sidebar() {
 
       {/* Bottom section */}
       <div className="mt-auto flex flex-col gap-1 px-2 pb-4">
+        {user?.email && (
+          <p className="px-3 py-1 text-xs text-muted-foreground truncate">
+            {user.email}
+          </p>
+        )}
         <NavLink to="/settings" className={navLinkClass}>
           <Settings className="h-4 w-4 shrink-0" />
           Settings
@@ -77,7 +83,7 @@ function Sidebar() {
           className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors w-full text-left"
         >
           <LogOut className="h-4 w-4 shrink-0" />
-          Disconnect
+          Sign out
         </button>
       </div>
     </aside>
@@ -157,8 +163,9 @@ function AppRoutes() {
                 </ProtectedRoute>
               }
             />
-            {/* Setup accessible even when authenticated (to change key) */}
-            <Route path="/setup" element={<SetupPage />} />
+            {/* Public */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
           </Routes>
         </main>
       </div>
@@ -170,7 +177,8 @@ function AppRoutes() {
     <div className="min-h-screen bg-background">
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/setup" element={<SetupPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route
           path="*"
           element={

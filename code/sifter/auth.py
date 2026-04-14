@@ -1,5 +1,13 @@
 """
-Auth utilities: API key validation only. No JWT, no user accounts.
+Auth utilities: API key validation + anonymous access.
+
+- No X-API-Key header: anonymous access, acts as "default" principal.
+- X-API-Key matches SIFTER_API_KEY config: bootstrap principal.
+- X-API-Key matches a DB-stored key: that key's principal.
+- X-API-Key provided but invalid: 401.
+
+The cloud layer (sifter-cloud) overrides get_current_principal via
+FastAPI dependency_overrides to add JWT support.
 """
 import hashlib
 from dataclasses import dataclass
@@ -17,7 +25,7 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 @dataclass
 class Principal:
-    key_id: str  # "bootstrap" for the config key, or MongoDB _id for DB keys
+    key_id: str  # "anonymous", "bootstrap", or MongoDB _id for DB keys
 
 
 def _hash_api_key(raw_key: str) -> str:
@@ -28,13 +36,10 @@ async def get_current_principal(
     api_key: Optional[str] = Depends(api_key_header),
     db=Depends(get_db),
 ) -> Principal:
-    """FastAPI dependency — validates API key, returns Principal."""
+    """FastAPI dependency — validates API key or grants anonymous access."""
+    # No key provided — anonymous access (single-tenant default)
     if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "ApiKey"},
-        )
+        return Principal(key_id="anonymous")
 
     # Check bootstrap key (plaintext match against config)
     if config.api_key and api_key == config.api_key:
@@ -53,6 +58,6 @@ async def get_current_principal(
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated",
+        detail="Invalid API key",
         headers={"WWW-Authenticate": "ApiKey"},
     )

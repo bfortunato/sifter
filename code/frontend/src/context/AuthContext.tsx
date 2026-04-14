@@ -6,61 +6,81 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { clearApiKey, getApiKey, setApiKey } from "../lib/apiFetch";
+import { fetchMe, login as apiLogin, register as apiRegister } from "../api/auth";
+import { User } from "../api/types";
+import { clearToken, getToken, setToken } from "../lib/apiFetch";
 
 interface AuthContextValue {
+  user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  apiKey: string | null;
-  saveApiKey: (key: string) => void;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => void;
-  // Legacy shims (no-op for compat with pages that might reference them)
-  user: null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [apiKey, setKey] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  const logout = useCallback(() => {
+    clearToken();
+    setUser(null);
+    navigate("/login");
+  }, [navigate]);
+
+  // On mount: restore session from localStorage
   useEffect(() => {
-    const stored = getApiKey();
-    setKey(stored);
-    setIsLoading(false);
+    const token = getToken();
+    if (token) {
+      fetchMe()
+        .then((me) => setUser(me))
+        .catch(() => {
+          clearToken();
+        })
+        .finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Handle auth-expired events
+  // Listen for auth-expired events dispatched by apiFetch
   useEffect(() => {
     const handler = () => {
-      setKey(null);
-      navigate("/setup");
+      setUser(null);
+      navigate("/login");
     };
     window.addEventListener("sifter:auth-expired", handler);
     return () => window.removeEventListener("sifter:auth-expired", handler);
   }, [navigate]);
 
-  const saveApiKey = useCallback((key: string) => {
-    setApiKey(key);
-    setKey(key);
+  const login = useCallback(async (email: string, password: string) => {
+    const data = await apiLogin(email, password);
+    setToken(data.access_token);
+    setUser(data.user);
   }, []);
 
-  const logout = useCallback(() => {
-    clearApiKey();
-    setKey(null);
-    navigate("/setup");
-  }, [navigate]);
+  const register = useCallback(
+    async (email: string, password: string, fullName: string) => {
+      const data = await apiRegister(email, password, fullName);
+      setToken(data.access_token);
+      setUser(data.user);
+    },
+    []
+  );
 
   return (
     <AuthContext.Provider
       value={{
-        isAuthenticated: !!apiKey,
+        user,
+        isAuthenticated: !!user,
         isLoading,
-        apiKey,
-        saveApiKey,
+        login,
+        register,
         logout,
-        user: null,
       }}
     >
       {children}

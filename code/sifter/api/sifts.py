@@ -12,7 +12,9 @@ from pydantic import BaseModel
 from ..auth import Principal, get_current_principal
 from ..config import config
 from ..db import get_db
+from ..deps import get_usage_limiter
 from ..models.sift import Sift, SiftStatus
+from ..services.limits import NoopLimiter
 from ..services.sift_results import SiftResultsService
 from ..services.sift_service import SiftService
 
@@ -48,7 +50,9 @@ async def create_sift(
     body: CreateSiftRequest,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
+    limiter: NoopLimiter = Depends(get_usage_limiter),
 ):
+    await limiter.check_sift_create(principal.org_id)
     svc = SiftService(db)
     await svc.ensure_indexes()
     sift = await svc.create(
@@ -119,7 +123,9 @@ async def upload_documents(
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
     files: list[UploadFile] = File(...),
+    limiter: NoopLimiter = Depends(get_usage_limiter),
 ):
+    await limiter.check_upload(principal.org_id, 0)
     svc = SiftService(db)
     sift = await svc.get(sift_id, org_id=principal.org_id)
     if not sift:

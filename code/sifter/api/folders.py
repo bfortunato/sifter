@@ -7,9 +7,11 @@ from pydantic import BaseModel
 from ..auth import Principal, get_current_principal
 from ..config import config
 from ..db import get_db
+from ..deps import get_usage_limiter
 from ..models.document import Folder
 from ..services.document_processor import enqueue
 from ..services.document_service import DocumentService
+from ..services.limits import NoopLimiter
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/folders", tags=["folders"])
@@ -300,7 +302,9 @@ async def upload_document(
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
     file: UploadFile = File(...),
+    limiter: NoopLimiter = Depends(get_usage_limiter),
 ):
+    await limiter.check_upload(principal.org_id, 0)
     svc = DocumentService(db)
     folder = await svc.get_folder(folder_id, principal.org_id)
     if not folder:

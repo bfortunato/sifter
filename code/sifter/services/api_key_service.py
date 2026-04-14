@@ -28,7 +28,12 @@ class ApiKeyService:
         self.db = db
 
     async def ensure_indexes(self):
-        await self.db["api_keys"].create_index("key_hash", unique=True, sparse=True)
+        # Drop and recreate if options changed (e.g. unique flag added)
+        try:
+            await self.db["api_keys"].create_index("key_hash", unique=True, sparse=True)
+        except Exception:
+            await self.db["api_keys"].drop_index("key_hash_1")
+            await self.db["api_keys"].create_index("key_hash", unique=True, sparse=True)
         await self.db["api_keys"].create_index("is_active")
 
     async def create_api_key(self, name: str) -> tuple[APIKey, str]:

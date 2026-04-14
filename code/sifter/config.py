@@ -20,6 +20,10 @@ class SifterConfig(BaseSettings):
     api_key: str = "sk-dev"  # Set SIFTER_API_KEY in production
     require_api_key: bool = False  # If True, requests without X-API-Key get 401
 
+    # JWT (for frontend / cloud layer)
+    jwt_secret: str = "dev-secret-change-in-production"
+    jwt_expire_minutes: int = 60 * 24  # 24h
+
     # File storage
     upload_dir: str = "./uploads"
     storage_path: str = "./uploads"

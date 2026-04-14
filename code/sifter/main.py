@@ -11,7 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from .api import aggregations, chat, documents, sifts, folders, keys, webhooks
+from .api import aggregations, auth, chat, documents, sifts, folders, keys, webhooks
 from .config import config
 from .db import close as close_db, get_db
 from .limiter import limiter
@@ -95,6 +95,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(keys.router)
 app.include_router(sifts.router)
 app.include_router(aggregations.router)

@@ -1,0 +1,1 @@
+import{_ as i,o as a,c as t,ae as n}from"./chunks/framework.Czhw_PXq.js";const E=JSON.parse('{"title":"Python SDK","description":"","frontmatter":{},"headers":[],"relativePath":"sdk.md","filePath":"sdk.md"}'),e={name:"sdk.md"};function l(h,s,p,k,d,r){return a(),t("div",null,[...s[0]||(s[0]=[n("",37)])])}const c=i(e,[["render",l]]);export{E as __pageData,c as default};

@@ -16,8 +16,9 @@ class SifterConfig(BaseSettings):
     extraction_temperature: float = 0.2
     max_concurrent_extractions: int = 5
 
-    # Auth — API key only (no JWT, no user accounts)
+    # Auth — API key optional
     api_key: str = "sk-dev"  # Set SIFTER_API_KEY in production
+    require_api_key: bool = False  # If True, requests without X-API-Key get 401
 
     # File storage
     upload_dir: str = "./uploads"

@@ -37,8 +37,14 @@ async def get_current_principal(
     db=Depends(get_db),
 ) -> Principal:
     """FastAPI dependency — validates API key or grants anonymous access."""
-    # No key provided — anonymous access (single-tenant default)
+    # No key provided — anonymous access unless require_api_key is set
     if not api_key:
+        if config.require_api_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
         return Principal(key_id="anonymous")
 
     # Check bootstrap key (plaintext match against config)

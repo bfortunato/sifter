@@ -20,11 +20,11 @@ class ReprocessRequest(BaseModel):
 @router.get("/{document_id}")
 async def get_document(
     document_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = DocumentService(db)
-    doc = await svc.get_document(document_id, principal.org_id)
+    doc = await svc.get_document(document_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -36,7 +36,6 @@ async def get_document(
         "content_type": doc.content_type,
         "size_bytes": doc.size_bytes,
         "folder_id": doc.folder_id,
-        "uploaded_by": doc.uploaded_by,
         "uploaded_at": doc.uploaded_at.isoformat(),
         "sift_statuses": [
             {
@@ -56,11 +55,11 @@ async def get_document(
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     document_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = DocumentService(db)
-    ok = await svc.delete_document(document_id, principal.org_id)
+    ok = await svc.delete_document(document_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -69,19 +68,18 @@ async def delete_document(
 async def reprocess_document(
     document_id: str,
     body: ReprocessRequest,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = DocumentService(db)
-    doc = await svc.get_document(document_id, principal.org_id)
+    doc = await svc.get_document(document_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Determine which sifts to re-enqueue
     if body.sift_id:
         sift_ids = [body.sift_id]
     else:
-        links = await svc.list_folder_extractors(doc.folder_id, principal.org_id)
+        links = await svc.list_folder_extractors(doc.folder_id)
         sift_ids = [l.sift_id for l in links]
 
     if not sift_ids:
@@ -91,10 +89,8 @@ async def reprocess_document(
 
     enqueued = []
     for sift_id in sift_ids:
-        await svc.update_sift_status(
-            document_id, sift_id, DocumentSiftStatusEnum.PENDING
-        )
-        enqueue(document_id, sift_id, doc.storage_path, principal.org_id)
+        await svc.update_sift_status(document_id, sift_id, DocumentSiftStatusEnum.PENDING)
+        await enqueue(document_id, sift_id, doc.storage_path)
         enqueued.append(sift_id)
 
     return {"document_id": document_id, "enqueued_for": enqueued}

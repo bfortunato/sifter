@@ -21,12 +21,8 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 from sifter.main import app
 from sifter.auth import Principal, get_current_principal
 
-TEST_ORG_ID = "test-org"
-TEST_USER_ID = "test-user"
-
-
 async def _mock_principal() -> Principal:
-    return Principal(user_id=TEST_USER_ID, org_id=TEST_ORG_ID, via="jwt")
+    return Principal(key_id="bootstrap")
 
 
 # Override auth for all tests
@@ -156,13 +152,13 @@ async def test_get_records_empty(client):
     assert r2.json()["items"] == []
 
 
-async def _insert_records(extraction_id, records, org_id=TEST_ORG_ID):
+async def _insert_records(extraction_id, records):
     from sifter.db import get_db
     from sifter.services.sift_results import SiftResultsService
     svc = SiftResultsService(get_db())
     await svc.ensure_indexes()
     for doc_id, doc_type, conf, data in records:
-        await svc.insert_result(extraction_id, doc_id, doc_type, conf, data, org_id=org_id)
+        await svc.insert_result(extraction_id, doc_id, doc_type, conf, data)
 
 
 async def test_get_records_with_data(client):

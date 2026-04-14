@@ -37,7 +37,6 @@ async def chat(
     extraction_id: Optional[str],
     message: str,
     history: list[dict],
-    org_id: Optional[str],
     db,
 ) -> QAResponse:
     """
@@ -49,11 +48,9 @@ async def chat(
 
     # Build system prompt with extraction context
     if extraction_id:
-        extraction = await extraction_svc.get(extraction_id, org_id=org_id)
+        extraction = await extraction_svc.get(extraction_id)
         if extraction:
-            sample_records = await results_svc.get_sample_records(
-                extraction_id, limit=5, org_id=org_id
-            )
+            sample_records = await results_svc.get_sample_records(extraction_id, limit=5)
             extraction_context = _build_extraction_context(extraction, sample_records)
             system = _PROMPT_TEMPLATE.replace("{extraction_context}", extraction_context)
         else:
@@ -61,7 +58,7 @@ async def chat(
             extraction_id = None  # can't query a nonexistent extraction
     else:
         # Global chat — list available extractions for context
-        sifts, _ = await extraction_svc.list_all(org_id=org_id)
+        sifts, _ = await extraction_svc.list_all()
         if sifts:
             names = ", ".join(f'"{e.name}" (id: {e.id})' for e in sifts[:5])
             global_context = f"\n## Available Sifts\n{names}\n"
@@ -97,9 +94,7 @@ async def chat(
         # Execute query if provided
         if query_used and extraction_id:
             try:
-                results, pipeline_used = await agg_svc.live_query(
-                    extraction_id, query_used, org_id=org_id
-                )
+                results, pipeline_used = await agg_svc.live_query(extraction_id, query_used)
                 result_data = results
             except Exception as e:
                 logger.warning("qa_agent_query_failed", error=str(e))

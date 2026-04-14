@@ -12,9 +12,7 @@ from pydantic import BaseModel
 from ..auth import Principal, get_current_principal
 from ..config import config
 from ..db import get_db
-from ..deps import get_usage_limiter
 from ..models.sift import Sift, SiftStatus
-from ..services.limits import NoopLimiter
 from ..services.sift_results import SiftResultsService
 from ..services.sift_service import SiftService
 
@@ -48,11 +46,9 @@ class ChatRequest(BaseModel):
 @router.post("", response_model=dict)
 async def create_sift(
     body: CreateSiftRequest,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
-    limiter: NoopLimiter = Depends(get_usage_limiter),
 ):
-    await limiter.check_sift_create(principal.org_id)
     svc = SiftService(db)
     await svc.ensure_indexes()
     sift = await svc.create(
@@ -60,7 +56,6 @@ async def create_sift(
         description=body.description,
         instructions=body.instructions,
         schema=body.schema,
-        org_id=principal.org_id,
     )
     return _sift_to_dict(sift)
 
@@ -69,22 +64,22 @@ async def create_sift(
 async def list_sifts(
     limit: int = 50,
     offset: int = 0,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = SiftService(db)
-    sifts, total = await svc.list_all(org_id=principal.org_id, skip=offset, limit=limit)
+    sifts, total = await svc.list_all(skip=offset, limit=limit)
     return {"items": [_sift_to_dict(s) for s in sifts], "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/{sift_id}", response_model=dict)
 async def get_sift(
     sift_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = SiftService(db)
-    sift = await svc.get(sift_id, org_id=principal.org_id)
+    sift = await svc.get(sift_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
     return _sift_to_dict(sift)
@@ -94,7 +89,7 @@ async def get_sift(
 async def update_sift(
     sift_id: str,
     body: UpdateSiftRequest,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = SiftService(db)
@@ -108,11 +103,11 @@ async def update_sift(
 @router.delete("/{sift_id}")
 async def delete_sift(
     sift_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = SiftService(db)
-    deleted = await svc.delete(sift_id, org_id=principal.org_id)
+    deleted = await svc.delete(sift_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Sift not found")
     return {"deleted": True}
@@ -122,14 +117,12 @@ async def delete_sift(
 async def upload_documents(
     sift_id: str,
     background_tasks: BackgroundTasks,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
     files: list[UploadFile] = File(...),
-    limiter: NoopLimiter = Depends(get_usage_limiter),
 ):
-    await limiter.check_upload(principal.org_id, 0)
     svc = SiftService(db)
-    sift = await svc.get(sift_id, org_id=principal.org_id)
+    sift = await svc.get(sift_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
 
@@ -159,7 +152,7 @@ async def upload_documents(
 @router.post("/{sift_id}/reindex")
 async def reindex_sift(
     sift_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     from ..services.document_service import DocumentService
@@ -169,22 +162,20 @@ async def reindex_sift(
     svc = SiftService(db)
     doc_svc = DocumentService(db)
 
-    sift = await svc.get(sift_id, org_id=principal.org_id)
+    sift = await svc.get(sift_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
 
-    # Find all documents that were processed by this sift (folder-based)
     statuses = await db["document_sift_statuses"].find(
-        {"sift_id": sift_id, "organization_id": principal.org_id}
+        {"sift_id": sift_id}
     ).to_list(length=None)
 
-    folder_doc_paths: list[tuple[str, str]] = []  # (document_id, storage_path)
+    folder_doc_paths: list[tuple[str, str]] = []
     for s in statuses:
         doc = await db["documents"].find_one({"_id": __import__("bson").ObjectId(s["document_id"])})
         if doc and doc.get("storage_path"):
             folder_doc_paths.append((s["document_id"], doc["storage_path"]))
 
-    # Also collect directly-uploaded files (legacy path)
     upload_dir = Path(config.upload_dir) / sift_id
     direct_paths = []
     if upload_dir.exists():
@@ -196,7 +187,6 @@ async def reindex_sift(
     if not folder_doc_paths and not direct_paths:
         raise HTTPException(status_code=400, detail="No documents found to reindex")
 
-    # Clear existing results
     await svc.results_service.delete_by_sift_id(sift_id)
     await svc.update(
         sift_id,
@@ -209,17 +199,14 @@ async def reindex_sift(
         },
     )
 
-    # Re-enqueue folder-based documents through the queue
     for doc_id, storage_path in folder_doc_paths:
         await db["document_sift_statuses"].update_one(
             {"document_id": doc_id, "sift_id": sift_id},
             {"$set": {"status": DocumentSiftStatusEnum.PENDING, "error_message": None, "sift_record_id": None}},
         )
-        await enqueue(doc_id, sift_id, storage_path, principal.org_id)
+        await enqueue(doc_id, sift_id, storage_path)
 
-    # Re-process direct-uploaded files via background task (old path)
     if direct_paths:
-        import asyncio
         asyncio.create_task(svc.process_documents(sift_id, direct_paths))
 
     total = len(folder_doc_paths) + len(direct_paths)
@@ -229,11 +216,11 @@ async def reindex_sift(
 @router.post("/{sift_id}/reset")
 async def reset_sift(
     sift_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = SiftService(db)
-    sift = await svc.get(sift_id, org_id=principal.org_id)
+    sift = await svc.get(sift_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
     result = await svc.reset_error(sift_id)
@@ -245,37 +232,35 @@ async def get_records(
     sift_id: str,
     limit: int = 50,
     offset: int = 0,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = SiftService(db)
-    sift = await svc.get(sift_id, org_id=principal.org_id)
+    sift = await svc.get(sift_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
-    records, total = await svc.get_records(sift_id, org_id=principal.org_id, skip=offset, limit=limit)
+    records, total = await svc.get_records(sift_id, skip=offset, limit=limit)
     return {"items": records, "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/{sift_id}/records/csv")
 async def export_csv(
     sift_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = SiftService(db)
-    sift = await svc.get(sift_id, org_id=principal.org_id)
+    sift = await svc.get(sift_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
 
     results_svc = SiftResultsService(db)
-    csv_content = await results_svc.export_csv(sift_id, org_id=principal.org_id)
+    csv_content = await results_svc.export_csv(sift_id)
 
     return Response(
         content=csv_content,
         media_type="text/csv",
-        headers={
-            "Content-Disposition": f'attachment; filename="{sift.name}.csv"',
-        },
+        headers={"Content-Disposition": f'attachment; filename="{sift.name}.csv"'},
     )
 
 
@@ -283,11 +268,11 @@ async def export_csv(
 async def query_sift(
     sift_id: str,
     body: QueryRequest,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = SiftService(db)
-    sift = await svc.get(sift_id, org_id=principal.org_id)
+    sift = await svc.get(sift_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
 
@@ -295,9 +280,7 @@ async def query_sift(
 
     agg_svc = AggregationService(db)
     try:
-        results, pipeline = await agg_svc.live_query(
-            sift_id, body.query, org_id=principal.org_id
-        )
+        results, pipeline = await agg_svc.live_query(sift_id, body.query)
     except Exception as e:
         logger.error("live_query_error", sift_id=sift_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -309,13 +292,13 @@ async def query_sift(
 async def sift_chat(
     sift_id: str,
     body: ChatRequest,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     from ..services.qa_agent import chat as qa_chat
 
     svc = SiftService(db)
-    sift = await svc.get(sift_id, org_id=principal.org_id)
+    sift = await svc.get(sift_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
 
@@ -324,7 +307,6 @@ async def sift_chat(
             extraction_id=sift_id,
             message=body.message,
             history=body.history,
-            org_id=principal.org_id,
             db=db,
         )
     except Exception as e:
@@ -341,7 +323,6 @@ async def sift_chat(
 def _sift_to_dict(s: Sift) -> dict:
     return {
         "id": s.id,
-        "organization_id": s.organization_id,
         "name": s.name,
         "description": s.description,
         "instructions": s.instructions,

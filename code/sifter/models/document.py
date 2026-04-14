@@ -18,7 +18,6 @@ DocumentExtractionStatusEnum = DocumentSiftStatusEnum
 
 class Folder(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
-    organization_id: str
     name: str
     description: str = ""
     document_count: int = 0
@@ -44,13 +43,11 @@ class Folder(BaseModel):
 
 class Document(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
-    organization_id: str
     folder_id: str
     filename: str
     original_filename: str
     content_type: str
     size_bytes: int
-    uploaded_by: str
     uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     storage_path: str
 
@@ -74,7 +71,6 @@ class Document(BaseModel):
 
 class FolderSift(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
-    organization_id: str
     folder_id: str
     sift_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -94,7 +90,6 @@ class FolderSift(BaseModel):
         doc = dict(doc)
         if "_id" in doc:
             doc["_id"] = str(doc["_id"])
-        # Migrate old extraction_id field
         if "extraction_id" in doc and "sift_id" not in doc:
             doc["sift_id"] = doc.pop("extraction_id")
         return cls(**doc)
@@ -106,7 +101,6 @@ FolderExtractor = FolderSift
 
 class DocumentSiftStatus(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
-    organization_id: str
     document_id: str
     sift_id: str
     status: DocumentSiftStatusEnum = DocumentSiftStatusEnum.PENDING
@@ -130,11 +124,13 @@ class DocumentSiftStatus(BaseModel):
         doc = dict(doc)
         if "_id" in doc:
             doc["_id"] = str(doc["_id"])
-        # Migrate old field names
         if "extraction_id" in doc and "sift_id" not in doc:
             doc["sift_id"] = doc.pop("extraction_id")
         if "extraction_record_id" in doc and "sift_record_id" not in doc:
             doc["sift_record_id"] = doc.pop("extraction_record_id")
+        # Drop org_id and other unknown fields gracefully
+        known = set(cls.model_fields.keys()) | {"_id"}
+        doc = {k: v for k, v in doc.items() if k in known or k == "_id"}
         return cls(**doc)
 
 

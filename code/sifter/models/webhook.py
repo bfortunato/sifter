@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 class Webhook(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
-    organization_id: str
     events: list[str]          # patterns, e.g. ["sift.*", "folder.document.uploaded"]
     url: str
     sift_id: Optional[str] = None  # optional filter: only fire for this sift

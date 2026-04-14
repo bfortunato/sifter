@@ -1,10 +1,10 @@
 /**
  * Authenticated fetch wrapper.
- * Injects Authorization: Bearer <token> header from localStorage.
- * On 401: clears token and dispatches "sifter:auth-expired" event.
+ * Sends X-API-Key header from localStorage.
+ * On 401: clears key and dispatches "sifter:auth-expired" event.
  */
 
-const TOKEN_KEY = "sifter_token";
+const API_KEY_KEY = "sifter_api_key";
 
 export class AuthError extends Error {
   constructor() {
@@ -13,33 +13,38 @@ export class AuthError extends Error {
   }
 }
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+export function getApiKey(): string | null {
+  return localStorage.getItem(API_KEY_KEY);
 }
 
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+export function setApiKey(key: string): void {
+  localStorage.setItem(API_KEY_KEY, key);
 }
 
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+export function clearApiKey(): void {
+  localStorage.removeItem(API_KEY_KEY);
 }
+
+// Legacy compat shims
+export const getToken = getApiKey;
+export const setToken = setApiKey;
+export const clearToken = clearApiKey;
 
 export async function apiFetch(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const token = getToken();
+  const apiKey = getApiKey();
   const headers = new Headers(options.headers);
 
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+  if (apiKey) {
+    headers.set("X-API-Key", apiKey);
   }
 
   const response = await fetch(url, { ...options, headers });
 
   if (response.status === 401) {
-    clearToken();
+    clearApiKey();
     window.dispatchEvent(new CustomEvent("sifter:auth-expired"));
     throw new AuthError();
   }

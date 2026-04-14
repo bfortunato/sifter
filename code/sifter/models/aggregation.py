@@ -15,7 +15,6 @@ class AggregationStatus(str, Enum):
 
 class Aggregation(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
-    organization_id: Optional[str] = None
     name: str
     description: str = ""
     sift_id: str

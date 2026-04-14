@@ -21,7 +21,6 @@ class CreateWebhookRequest(BaseModel):
 def _wh_dict(wh) -> dict:
     return {
         "id": wh.id,
-        "organization_id": wh.organization_id,
         "events": wh.events,
         "url": wh.url,
         "sift_id": wh.sift_id,
@@ -33,38 +32,33 @@ def _wh_dict(wh) -> dict:
 async def list_webhooks(
     limit: int = 50,
     offset: int = 0,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = WebhookService(db)
-    hooks, total = await svc.list_all(principal.org_id, skip=offset, limit=limit)
+    hooks, total = await svc.list_all(skip=offset, limit=limit)
     return {"items": [_wh_dict(h) for h in hooks], "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_webhook(
     body: CreateWebhookRequest,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = WebhookService(db)
     await svc.ensure_indexes()
-    hook = await svc.create(
-        org_id=principal.org_id,
-        events=body.events,
-        url=body.url,
-        sift_id=body.sift_id,
-    )
+    hook = await svc.create(events=body.events, url=body.url, sift_id=body.sift_id)
     return _wh_dict(hook)
 
 
 @router.delete("/{hook_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_webhook(
     hook_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = WebhookService(db)
-    ok = await svc.delete(hook_id, principal.org_id)
+    ok = await svc.delete(hook_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Webhook not found")

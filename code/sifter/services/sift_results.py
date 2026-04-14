@@ -27,7 +27,6 @@ class SiftResultsService:
             name="sift_document_unique",
         )
         await self.col.create_index("sift_id", name="sift_id_idx")
-        await self.col.create_index("organization_id", name="organization_id_idx")
 
     async def insert_result(
         self,
@@ -36,10 +35,8 @@ class SiftResultsService:
         document_type: str,
         confidence: float,
         extracted_data: dict[str, Any],
-        org_id: Optional[str] = None,
     ) -> SiftResult:
         result = SiftResult(
-            organization_id=org_id,
             sift_id=sift_id,
             document_id=document_id,
             document_type=document_type,
@@ -59,13 +56,10 @@ class SiftResultsService:
     async def get_results(
         self,
         sift_id: str,
-        org_id: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> tuple[list[SiftResult], int]:
         query: dict = {"sift_id": sift_id}
-        if org_id:
-            query["organization_id"] = org_id
         total = await self.col.count_documents(query)
         cursor = self.col.find(query).skip(skip).limit(limit)
         docs = await cursor.to_list(length=limit)
@@ -84,22 +78,18 @@ class SiftResultsService:
         return await self.col.count_documents({"sift_id": sift_id})
 
     async def execute_aggregation(
-        self, sift_id: str, pipeline_input: Any, org_id: Optional[str] = None
+        self, sift_id: str, pipeline_input: Any
     ) -> list[dict[str, Any]]:
         """
         Execute a MongoDB aggregation pipeline against sift results.
-        Automatically injects sift_id (and org_id if provided) match as the first stage.
-        pipeline_input can be a JSON string or a list.
+        Automatically injects sift_id match as the first stage.
         """
         if isinstance(pipeline_input, str):
             pipeline: list[dict] = json.loads(pipeline_input)
         else:
             pipeline = list(pipeline_input)
 
-        # Build match filter
         match_filter: dict = {"sift_id": sift_id}
-        if org_id:
-            match_filter["organization_id"] = org_id
 
         # Inject filter as first stage if not already present
         has_sift_match = False
@@ -111,19 +101,14 @@ class SiftResultsService:
         if not has_sift_match:
             pipeline.insert(0, {"$match": match_filter})
 
-        logger.info(
-            "aggregation_execute",
-            sift_id=sift_id,
-            stages=len(pipeline),
-        )
+        logger.info("aggregation_execute", sift_id=sift_id, stages=len(pipeline))
 
         cursor = self.col.aggregate(pipeline)
         results = await cursor.to_list(length=None)
-
         return [_serialize_doc(r) for r in results]
 
-    async def export_csv(self, sift_id: str, org_id: Optional[str] = None) -> str:
-        results, _ = await self.get_results(sift_id, org_id=org_id, skip=0, limit=100_000)
+    async def export_csv(self, sift_id: str) -> str:
+        results, _ = await self.get_results(sift_id, skip=0, limit=100_000)
         if not results:
             return ""
 
@@ -155,11 +140,9 @@ class SiftResultsService:
         return output.getvalue()
 
     async def get_sample_records(
-        self, sift_id: str, limit: int = 10, org_id: Optional[str] = None
+        self, sift_id: str, limit: int = 10
     ) -> list[dict[str, Any]]:
         query: dict = {"sift_id": sift_id}
-        if org_id:
-            query["organization_id"] = org_id
         cursor = self.col.find(query).limit(limit)
         docs = await cursor.to_list(length=limit)
         return [_serialize_doc(d) for d in docs]

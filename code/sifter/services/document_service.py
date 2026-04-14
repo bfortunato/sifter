@@ -1,6 +1,6 @@
 """
 Document management service: Folders, Documents, FolderSift links,
-DocumentSiftStatus tracking.
+DocumentSiftStatus tracking. Single-tenant — no org_id.
 """
 import os
 from datetime import datetime, timezone
@@ -29,11 +29,9 @@ class DocumentService:
         self.db = db
 
     async def ensure_indexes(self):
-        await self.db["folders"].create_index("organization_id")
         await self.db["documents"].create_index([("folder_id", 1), ("filename", 1)], unique=True)
-        await self.db["documents"].create_index("organization_id")
 
-        # Drop any stale indexes on folder_extractors (legacy extraction_id or name conflicts)
+        # Drop stale indexes
         for idx_name in [
             "folder_id_1_extraction_id_1",
             "folder_id_sift_id_unique",
@@ -45,7 +43,6 @@ class DocumentService:
             except Exception:
                 pass
 
-        # Drop any stale indexes on document_sift_statuses
         for idx_name in [
             "document_id_1_extraction_id_1",
             "document_id_1_sift_id_1",
@@ -63,80 +60,67 @@ class DocumentService:
         await self.db["document_sift_statuses"].create_index(
             [("document_id", 1), ("sift_id", 1)], unique=True, name="document_sift_unique"
         )
-        await self.db["document_sift_statuses"].create_index("organization_id")
 
     # ---- Folders ----
 
-    async def create_folder(self, name: str, description: str, org_id: str) -> Folder:
-        folder = Folder(organization_id=org_id, name=name, description=description)
+    async def create_folder(self, name: str, description: str) -> Folder:
+        folder = Folder(name=name, description=description)
         result = await self.db["folders"].insert_one(folder.to_mongo())
         folder.id = str(result.inserted_id)
         return folder
 
     async def list_folders(
-        self, org_id: str, skip: int = 0, limit: int = 50
+        self, skip: int = 0, limit: int = 50
     ) -> tuple[list[Folder], int]:
-        query = {"organization_id": org_id}
-        total = await self.db["folders"].count_documents(query)
-        docs = await self.db["folders"].find(query).skip(skip).limit(limit).to_list(length=limit)
+        total = await self.db["folders"].count_documents({})
+        docs = await self.db["folders"].find({}).skip(skip).limit(limit).to_list(length=limit)
         return [Folder.from_mongo(d) for d in docs], total
 
-    async def get_folder(self, folder_id: str, org_id: str) -> Optional[Folder]:
-        doc = await self.db["folders"].find_one(
-            {"_id": ObjectId(folder_id), "organization_id": org_id}
-        )
+    async def get_folder(self, folder_id: str) -> Optional[Folder]:
+        doc = await self.db["folders"].find_one({"_id": ObjectId(folder_id)})
         return Folder.from_mongo(doc) if doc else None
 
-    async def update_folder(self, folder_id: str, org_id: str, updates: dict) -> Optional[Folder]:
+    async def update_folder(self, folder_id: str, updates: dict) -> Optional[Folder]:
         result = await self.db["folders"].find_one_and_update(
-            {"_id": ObjectId(folder_id), "organization_id": org_id},
+            {"_id": ObjectId(folder_id)},
             {"$set": updates},
             return_document=True,
         )
         return Folder.from_mongo(result) if result else None
 
-    async def delete_folder(self, folder_id: str, org_id: str) -> bool:
-        # Cascade: delete documents and their statuses
-        docs = await self.db["documents"].find(
-            {"folder_id": folder_id, "organization_id": org_id}
-        ).to_list(length=None)
+    async def delete_folder(self, folder_id: str) -> bool:
+        docs = await self.db["documents"].find({"folder_id": folder_id}).to_list(length=None)
         for doc in docs:
             doc_id = str(doc["_id"])
             await self._delete_document_files(doc)
             await self.db["document_sift_statuses"].delete_many({"document_id": doc_id})
-        await self.db["documents"].delete_many({"folder_id": folder_id, "organization_id": org_id})
+        await self.db["documents"].delete_many({"folder_id": folder_id})
         await self.db["folder_extractors"].delete_many({"folder_id": folder_id})
-        result = await self.db["folders"].delete_one(
-            {"_id": ObjectId(folder_id), "organization_id": org_id}
-        )
+        result = await self.db["folders"].delete_one({"_id": ObjectId(folder_id)})
         return result.deleted_count > 0
 
     # ---- Folder ↔ Sift links ----
 
-    async def link_extractor(self, folder_id: str, sift_id: str, org_id: str) -> FolderSift:
+    async def link_extractor(self, folder_id: str, sift_id: str) -> FolderSift:
         existing = await self.db["folder_extractors"].find_one(
             {"folder_id": folder_id, "sift_id": sift_id}
         )
         if existing:
             return FolderSift.from_mongo(existing)
-        link = FolderSift(
-            organization_id=org_id,
-            folder_id=folder_id,
-            sift_id=sift_id,
-        )
+        link = FolderSift(folder_id=folder_id, sift_id=sift_id)
         result = await self.db["folder_extractors"].insert_one(link.to_mongo())
         link.id = str(result.inserted_id)
         return link
 
-    async def unlink_extractor(self, folder_id: str, sift_id: str, org_id: str) -> bool:
+    async def unlink_extractor(self, folder_id: str, sift_id: str) -> bool:
         result = await self.db["folder_extractors"].delete_one(
-            {"folder_id": folder_id, "sift_id": sift_id, "organization_id": org_id}
+            {"folder_id": folder_id, "sift_id": sift_id}
         )
         return result.deleted_count > 0
 
-    async def list_folder_extractors(self, folder_id: str, org_id: str) -> list[FolderSift]:
+    async def list_folder_extractors(self, folder_id: str) -> list[FolderSift]:
         docs = await self.db["folder_extractors"].find(
-            {"folder_id": folder_id, "organization_id": org_id}
+            {"folder_id": folder_id}
         ).to_list(length=None)
         return [FolderSift.from_mongo(d) for d in docs]
 
@@ -148,33 +132,26 @@ class DocumentService:
         filename: str,
         content_type: str,
         folder_id: str,
-        org_id: str,
-        uploaded_by: str,
     ) -> Document:
-        # Build storage path
-        storage_dir = Path(config.storage_path) / org_id / folder_id
+        storage_dir = Path(config.storage_path) / folder_id
         storage_dir.mkdir(parents=True, exist_ok=True)
         storage_path = str(storage_dir / filename)
 
-        # Write file
         async with aiofiles.open(storage_path, "wb") as f:
             await f.write(file_bytes)
 
         size_bytes = len(file_bytes)
         doc = Document(
-            organization_id=org_id,
             folder_id=folder_id,
             filename=filename,
             original_filename=filename,
             content_type=content_type,
             size_bytes=size_bytes,
-            uploaded_by=uploaded_by,
             storage_path=storage_path,
         )
         result = await self.db["documents"].insert_one(doc.to_mongo())
         doc.id = str(result.inserted_id)
 
-        # Increment folder document_count
         await self.db["folders"].update_one(
             {"_id": ObjectId(folder_id)},
             {"$inc": {"document_count": 1}},
@@ -184,10 +161,10 @@ class DocumentService:
         return doc
 
     async def list_documents(
-        self, folder_id: str, org_id: str, skip: int = 0, limit: int = 50
+        self, folder_id: str, skip: int = 0, limit: int = 50
     ) -> tuple[list[dict[str, Any]], int]:
         """List documents with per-sift status for each."""
-        query = {"folder_id": folder_id, "organization_id": org_id}
+        query = {"folder_id": folder_id}
         total = await self.db["documents"].count_documents(query)
         docs = await self.db["documents"].find(query).skip(skip).limit(limit).to_list(length=limit)
 
@@ -203,7 +180,6 @@ class DocumentService:
                 "original_filename": doc.get("original_filename", doc["filename"]),
                 "content_type": doc.get("content_type", ""),
                 "size_bytes": doc.get("size_bytes", 0),
-                "uploaded_by": doc.get("uploaded_by", ""),
                 "uploaded_at": doc["uploaded_at"].isoformat() if doc.get("uploaded_at") else None,
                 "sift_statuses": [
                     {
@@ -219,16 +195,12 @@ class DocumentService:
             })
         return result, total
 
-    async def get_document(self, document_id: str, org_id: str) -> Optional[Document]:
-        doc = await self.db["documents"].find_one(
-            {"_id": ObjectId(document_id), "organization_id": org_id}
-        )
+    async def get_document(self, document_id: str) -> Optional[Document]:
+        doc = await self.db["documents"].find_one({"_id": ObjectId(document_id)})
         return Document.from_mongo(doc) if doc else None
 
-    async def delete_document(self, document_id: str, org_id: str) -> bool:
-        doc = await self.db["documents"].find_one(
-            {"_id": ObjectId(document_id), "organization_id": org_id}
-        )
+    async def delete_document(self, document_id: str) -> bool:
+        doc = await self.db["documents"].find_one({"_id": ObjectId(document_id)})
         if not doc:
             return False
         await self._delete_document_files(doc)
@@ -252,10 +224,9 @@ class DocumentService:
     # ---- DocumentSiftStatus ----
 
     async def create_sift_status(
-        self, document_id: str, sift_id: str, org_id: str
+        self, document_id: str, sift_id: str
     ) -> DocumentSiftStatus:
         status = DocumentSiftStatus(
-            organization_id=org_id,
             document_id=document_id,
             sift_id=sift_id,
             status=DocumentSiftStatusEnum.PENDING,
@@ -266,9 +237,9 @@ class DocumentService:
 
     # Legacy alias
     async def create_extraction_status(
-        self, document_id: str, sift_id: str, org_id: str
+        self, document_id: str, sift_id: str
     ) -> DocumentSiftStatus:
-        return await self.create_sift_status(document_id, sift_id, org_id)
+        return await self.create_sift_status(document_id, sift_id)
 
     async def update_sift_status(
         self,

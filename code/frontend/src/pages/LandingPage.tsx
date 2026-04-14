@@ -30,13 +30,7 @@ export default function LandingPage() {
               GitHub
             </a>
             <Link
-              to="/login"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
-            >
-              Sign in
-            </Link>
-            <Link
-              to="/register"
+              to="/setup"
               className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Get Started →
@@ -59,7 +53,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-8 flex gap-3 justify-center flex-wrap">
             <Link
-              to="/register"
+              to="/setup"
               className="bg-primary text-primary-foreground px-6 py-3 rounded-md font-medium hover:opacity-90 transition-opacity"
             >
               Get Started →
@@ -264,7 +258,7 @@ export default function LandingPage() {
               Docs
             </a>
             <Link
-              to="/register"
+              to="/setup"
               className="hover:text-foreground transition-colors"
             >
               Get Started

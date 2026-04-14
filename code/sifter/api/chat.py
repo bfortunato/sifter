@@ -33,7 +33,7 @@ class ChatResponse(BaseModel):
 @router.post("", response_model=ChatResponse)
 async def chat(
     body: ChatRequest,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     history_dicts = [{"role": m.role, "content": m.content} for m in body.history]
@@ -42,7 +42,6 @@ async def chat(
             extraction_id=body.sift_id,
             message=body.message,
             history=history_dicts,
-            org_id=principal.org_id,
             db=db,
         )
     except Exception as e:

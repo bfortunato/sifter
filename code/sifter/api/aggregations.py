@@ -23,7 +23,7 @@ class CreateAggregationRequest(BaseModel):
 @router.post("", response_model=dict, status_code=status.HTTP_202_ACCEPTED)
 async def create_aggregation(
     body: CreateAggregationRequest,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = AggregationService(db)
@@ -33,7 +33,6 @@ async def create_aggregation(
         description=body.description,
         sift_id=body.sift_id,
         query=body.aggregation_query,
-        org_id=principal.org_id,
     )
     return _agg_to_dict(aggregation)
 
@@ -43,22 +42,22 @@ async def list_aggregations(
     sift_id: str | None = None,
     limit: int = 50,
     offset: int = 0,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = AggregationService(db)
-    aggregations, total = await svc.list_all(sift_id=sift_id, org_id=principal.org_id, skip=offset, limit=limit)
+    aggregations, total = await svc.list_all(sift_id=sift_id, skip=offset, limit=limit)
     return {"items": [_agg_to_dict(a) for a in aggregations], "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/{agg_id}", response_model=dict)
 async def get_aggregation(
     agg_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = AggregationService(db)
-    aggregation = await svc.get(agg_id, org_id=principal.org_id)
+    aggregation = await svc.get(agg_id)
     if not aggregation:
         raise HTTPException(status_code=404, detail="Aggregation not found")
     return _agg_to_dict(aggregation)
@@ -67,36 +66,32 @@ async def get_aggregation(
 @router.get("/{agg_id}/result")
 async def get_aggregation_result(
     agg_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = AggregationService(db)
-    aggregation = await svc.get(agg_id, org_id=principal.org_id)
+    aggregation = await svc.get(agg_id)
     if not aggregation:
         raise HTTPException(status_code=404, detail="Aggregation not found")
     try:
-        results, pipeline = await svc.execute(agg_id, org_id=principal.org_id)
+        results, pipeline = await svc.execute(agg_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error("aggregation_execute_error", agg_id=agg_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
-    return {
-        "results": results,
-        "pipeline": pipeline,
-        "ran_at": datetime.now(timezone.utc).isoformat(),
-    }
+    return {"results": results, "pipeline": pipeline, "ran_at": datetime.now(timezone.utc).isoformat()}
 
 
 @router.post("/{agg_id}/regenerate")
 async def regenerate_aggregation(
     agg_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = AggregationService(db)
     try:
-        aggregation = await svc.regenerate(agg_id, org_id=principal.org_id)
+        aggregation = await svc.regenerate(agg_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return _agg_to_dict(aggregation)
@@ -105,11 +100,11 @@ async def regenerate_aggregation(
 @router.delete("/{agg_id}")
 async def delete_aggregation(
     agg_id: str,
-    principal: Principal = Depends(get_current_principal),
+    _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
     svc = AggregationService(db)
-    deleted = await svc.delete(agg_id, org_id=principal.org_id)
+    deleted = await svc.delete(agg_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Aggregation not found")
     return {"deleted": True}
@@ -118,7 +113,6 @@ async def delete_aggregation(
 def _agg_to_dict(a: Aggregation) -> dict:
     return {
         "id": a.id,
-        "organization_id": a.organization_id,
         "name": a.name,
         "description": a.description,
         "sift_id": a.sift_id,

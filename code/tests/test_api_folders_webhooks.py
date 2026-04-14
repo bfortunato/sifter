@@ -19,12 +19,8 @@ from sifter.main import app
 from sifter.auth import Principal, get_current_principal
 
 # Same org as test_api.py — single shared principal override avoids conflicts
-TEST_ORG_ID = "test-org"
-TEST_USER_ID = "test-user"
-
-
 async def _mock_principal() -> Principal:
-    return Principal(user_id=TEST_USER_ID, org_id=TEST_ORG_ID, via="jwt")
+    return Principal(key_id="bootstrap")
 
 
 app.dependency_overrides[get_current_principal] = _mock_principal

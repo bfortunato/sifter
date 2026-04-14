@@ -46,44 +46,32 @@ class WebhookService:
         self.db = db
 
     async def ensure_indexes(self) -> None:
-        await self.db["webhooks"].create_index("organization_id")
+        await self.db["webhooks"].create_index("created_at")
 
     async def create(
         self,
-        org_id: str,
         events: list[str],
         url: str,
         sift_id: Optional[str] = None,
     ) -> Webhook:
-        wh = Webhook(
-            organization_id=org_id,
-            events=events,
-            url=url,
-            sift_id=sift_id,
-        )
+        wh = Webhook(events=events, url=url, sift_id=sift_id)
         doc = wh.to_mongo()
         result = await self.db["webhooks"].insert_one(doc)
         wh.id = str(result.inserted_id)
         return wh
 
-    async def list_all(
-        self, org_id: str, skip: int = 0, limit: int = 50
-    ) -> tuple[list[Webhook], int]:
-        query = {"organization_id": org_id}
-        total = await self.db["webhooks"].count_documents(query)
-        cursor = self.db["webhooks"].find(query).skip(skip).limit(limit)
+    async def list_all(self, skip: int = 0, limit: int = 50) -> tuple[list[Webhook], int]:
+        total = await self.db["webhooks"].count_documents({})
+        cursor = self.db["webhooks"].find({}).skip(skip).limit(limit)
         docs = await cursor.to_list(length=limit)
         return [Webhook.from_mongo(d) for d in docs], total
 
-    async def delete(self, hook_id: str, org_id: str) -> bool:
-        result = await self.db["webhooks"].delete_one(
-            {"_id": ObjectId(hook_id), "organization_id": org_id}
-        )
+    async def delete(self, hook_id: str) -> bool:
+        result = await self.db["webhooks"].delete_one({"_id": ObjectId(hook_id)})
         return result.deleted_count > 0
 
     async def dispatch(
         self,
-        org_id: str,
         event: str,
         payload: dict,
         sift_id: Optional[str] = None,
@@ -95,13 +83,12 @@ class WebhookService:
         import asyncio
         import httpx
 
-        cursor = self.db["webhooks"].find({"organization_id": org_id})
+        cursor = self.db["webhooks"].find({})
         hooks = await cursor.to_list(length=None)
 
         matching = []
         for raw in hooks:
             wh = Webhook.from_mongo(raw)
-            # Optional sift_id filter
             if wh.sift_id and sift_id and wh.sift_id != sift_id:
                 continue
             if any(_matches_pattern(p, event) for p in wh.events):
@@ -116,16 +103,6 @@ class WebhookService:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for wh, res in zip(matching, results):
                 if isinstance(res, Exception):
-                    logger.warning(
-                        "webhook_delivery_failed",
-                        url=wh.url,
-                        event=event,
-                        error=str(res),
-                    )
+                    logger.warning("webhook_delivery_failed", url=wh.url, event=event, error=str(res))
                 else:
-                    logger.info(
-                        "webhook_delivered",
-                        url=wh.url,
-                        event=event,
-                        status=res.status_code,
-                    )
+                    logger.info("webhook_delivered", url=wh.url, event=event, status=res.status_code)

@@ -27,7 +27,6 @@ class SiftService:
 
     async def ensure_indexes(self):
         await self.col.create_index("created_at", name="created_at_idx")
-        await self.col.create_index("organization_id", name="organization_id_idx")
         await self.results_service.ensure_indexes()
 
     async def create(
@@ -36,10 +35,8 @@ class SiftService:
         description: str,
         instructions: str,
         schema: Optional[str] = None,
-        org_id: Optional[str] = None,
     ) -> Sift:
         sift = Sift(
-            organization_id=org_id,
             name=name,
             description=description,
             instructions=instructions,
@@ -52,33 +49,24 @@ class SiftService:
         logger.info("sift_created", sift_id=sift.id, name=name)
         return sift
 
-    async def get(self, sift_id: str, org_id: Optional[str] = None) -> Optional[Sift]:
+    async def get(self, sift_id: str) -> Optional[Sift]:
         query: dict = {"_id": ObjectId(sift_id)}
-        if org_id:
-            query["organization_id"] = org_id
         doc = await self.col.find_one(query)
         return Sift.from_mongo(doc) if doc else None
 
     async def list_all(
         self,
-        org_id: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> tuple[list[Sift], int]:
-        query: dict = {}
-        if org_id:
-            query["organization_id"] = org_id
-        total = await self.col.count_documents(query)
-        cursor = self.col.find(query).sort("created_at", -1).skip(skip).limit(limit)
+        total = await self.col.count_documents({})
+        cursor = self.col.find({}).sort("created_at", -1).skip(skip).limit(limit)
         docs = await cursor.to_list(length=limit)
         return [Sift.from_mongo(d) for d in docs], total
 
-    async def delete(self, sift_id: str, org_id: Optional[str] = None) -> bool:
-        query: dict = {"_id": ObjectId(sift_id)}
-        if org_id:
-            query["organization_id"] = org_id
+    async def delete(self, sift_id: str) -> bool:
         await self.results_service.delete_by_sift_id(sift_id)
-        result = await self.col.delete_one(query)
+        result = await self.col.delete_one({"_id": ObjectId(sift_id)})
         return result.deleted_count > 0
 
     async def update(self, sift_id: str, updates: dict) -> Optional[Sift]:
@@ -138,7 +126,6 @@ class SiftService:
                     document_type=result.document_type,
                     confidence=result.confidence,
                     extracted_data=result.extracted_data,
-                    org_id=sift.organization_id,
                 )
 
                 # Infer schema from first successful result
@@ -205,7 +192,6 @@ class SiftService:
             document_type=result.document_type,
             confidence=result.confidence,
             extracted_data=result.extracted_data,
-            org_id=sift.organization_id,
         )
 
         if not sift.schema and result.extracted_data:
@@ -235,11 +221,10 @@ class SiftService:
     async def get_records(
         self,
         sift_id: str,
-        org_id: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> tuple[list[dict[str, Any]], int]:
-        results, total = await self.results_service.get_results(sift_id, org_id=org_id, skip=skip, limit=limit)
+        results, total = await self.results_service.get_results(sift_id, skip=skip, limit=limit)
         return [
             {
                 "id": r.id,

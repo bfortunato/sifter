@@ -11,15 +11,15 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from .api import aggregations, auth, chat, documents, sifts, folders, keys, orgs, webhooks
+from .api import aggregations, chat, documents, sifts, folders, keys, webhooks
 from .config import config
 from .db import close as close_db, get_db
 from .limiter import limiter
 from .services.aggregation_service import AggregationService
-from .services.auth_service import AuthService
+from .services.api_key_service import ApiKeyService
 from .services.document_processor import ensure_indexes as ensure_queue_indexes, start_workers
 from .services.document_service import DocumentService
-from .services.extraction_service import SiftService
+from .services.sift_service import SiftService
 from .services.webhook_service import WebhookService
 
 structlog.configure(
@@ -41,6 +41,12 @@ _worker_tasks = []
 async def lifespan(app: FastAPI):
     global _worker_tasks
     # Startup
+    if config.api_key == "sk-dev":
+        logger.warning(
+            "using_default_api_key",
+            message="SIFTER_API_KEY is not set. Using insecure default 'sk-dev'. Set SIFTER_API_KEY in production.",
+        )
+
     logger.info("sifter_starting", mongodb_uri=config.mongodb_uri, model=config.llm_model)
     os.makedirs(config.upload_dir, exist_ok=True)
     os.makedirs(config.storage_path, exist_ok=True)
@@ -48,7 +54,7 @@ async def lifespan(app: FastAPI):
     db = get_db()
     await SiftService(db).ensure_indexes()
     await AggregationService(db).ensure_indexes()
-    await AuthService(db).ensure_indexes()
+    await ApiKeyService(db).ensure_indexes()
     await DocumentService(db).ensure_indexes()
     await WebhookService(db).ensure_indexes()
     await ensure_queue_indexes(db)
@@ -89,9 +95,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
 app.include_router(keys.router)
-app.include_router(orgs.router)
 app.include_router(sifts.router)
 app.include_router(aggregations.router)
 app.include_router(chat.router)
@@ -105,14 +109,12 @@ async def health():
     db = get_db()
     components = {}
 
-    # Check DB
     try:
         await db.command("ping")
         components["database"] = "ok"
     except Exception as e:
         components["database"] = f"error: {str(e)}"
 
-    # Queue depth
     try:
         pending = await db["processing_queue"].count_documents({"status": "pending"})
         processing = await db["processing_queue"].count_documents({"status": "processing"})

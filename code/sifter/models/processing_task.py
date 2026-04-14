@@ -9,7 +9,6 @@ class ProcessingTask(BaseModel):
     document_id: str
     sift_id: str
     storage_path: str
-    org_id: str
     status: str = "pending"   # pending | processing | done | error
     attempts: int = 0
     max_attempts: int = 3

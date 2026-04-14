@@ -6,7 +6,6 @@ from bson import ObjectId
 
 class SiftResult(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
-    organization_id: Optional[str] = None
     sift_id: str
     document_id: str
     document_type: str = "unknown"

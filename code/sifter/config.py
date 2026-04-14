@@ -16,9 +16,8 @@ class SifterConfig(BaseSettings):
     extraction_temperature: float = 0.2
     max_concurrent_extractions: int = 5
 
-    # Auth
-    jwt_secret: str = "dev-secret-change-in-production"
-    jwt_expire_minutes: int = 1440  # 24 hours
+    # Auth — API key only (no JWT, no user accounts)
+    api_key: str = "sk-dev"  # Set SIFTER_API_KEY in production
 
     # File storage
     upload_dir: str = "./uploads"

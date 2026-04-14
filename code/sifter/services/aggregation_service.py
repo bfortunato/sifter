@@ -25,7 +25,6 @@ class AggregationService:
     async def ensure_indexes(self):
         await self.col.create_index("sift_id", name="sift_id_idx")
         await self.col.create_index("created_at", name="created_at_idx")
-        await self.col.create_index("organization_id", name="organization_id_idx")
 
     async def create(
         self,
@@ -33,10 +32,8 @@ class AggregationService:
         description: str,
         sift_id: str,
         query: str,
-        org_id: Optional[str] = None,
     ) -> Aggregation:
         aggregation = Aggregation(
-            organization_id=org_id,
             name=name,
             description=description,
             sift_id=sift_id,
@@ -47,22 +44,18 @@ class AggregationService:
         result = await self.col.insert_one(doc)
         aggregation.id = str(result.inserted_id)
 
-        # Fire-and-forget background pipeline generation
         asyncio.create_task(
-            self._generate_and_store_pipeline(aggregation.id, sift_id, query, org_id)
+            self._generate_and_store_pipeline(aggregation.id, sift_id, query)
         )
 
         return aggregation
 
     async def _generate_and_store_pipeline(
-        self, agg_id: str, sift_id: str, query: str, org_id: Optional[str] = None
+        self, agg_id: str, sift_id: str, query: str
     ) -> None:
         try:
-            samples = await self.results_service.get_sample_records(
-                sift_id, limit=10, org_id=org_id
-            )
+            samples = await self.results_service.get_sample_records(sift_id, limit=10)
             pipeline_json = await pipeline_agent.generate_pipeline(query, samples)
-            # Parse to list for storage
             pipeline_list = json.loads(pipeline_json)
             await self._update(
                 agg_id,
@@ -79,42 +72,31 @@ class AggregationService:
                 {"status": AggregationStatus.ERROR, "aggregation_error": str(e)},
             )
 
-    async def get(self, agg_id: str, org_id: Optional[str] = None) -> Optional[Aggregation]:
-        query: dict = {"_id": ObjectId(agg_id)}
-        if org_id:
-            query["organization_id"] = org_id
-        doc = await self.col.find_one(query)
+    async def get(self, agg_id: str) -> Optional[Aggregation]:
+        doc = await self.col.find_one({"_id": ObjectId(agg_id)})
         return Aggregation.from_mongo(doc) if doc else None
 
     async def list_all(
         self,
         sift_id: Optional[str] = None,
-        org_id: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> tuple[list[Aggregation], int]:
         query: dict = {}
         if sift_id:
             query["sift_id"] = sift_id
-        if org_id:
-            query["organization_id"] = org_id
         total = await self.col.count_documents(query)
         cursor = self.col.find(query).sort("created_at", -1).skip(skip).limit(limit)
         docs = await cursor.to_list(length=limit)
         return [Aggregation.from_mongo(d) for d in docs], total
 
-    async def delete(self, agg_id: str, org_id: Optional[str] = None) -> bool:
-        query: dict = {"_id": ObjectId(agg_id)}
-        if org_id:
-            query["organization_id"] = org_id
-        result = await self.col.delete_one(query)
+    async def delete(self, agg_id: str) -> bool:
+        result = await self.col.delete_one({"_id": ObjectId(agg_id)})
         return result.deleted_count > 0
 
-    async def execute(
-        self, agg_id: str, org_id: Optional[str] = None
-    ) -> tuple[list[dict[str, Any]], list]:
+    async def execute(self, agg_id: str) -> tuple[list[dict[str, Any]], list]:
         """Execute stored pipeline. Returns (results, pipeline_list)."""
-        aggregation = await self.get(agg_id, org_id=org_id)
+        aggregation = await self.get(agg_id)
         if not aggregation:
             raise ValueError(f"Aggregation {agg_id} not found")
         if aggregation.status == AggregationStatus.ERROR:
@@ -127,17 +109,13 @@ class AggregationService:
         results = await self.results_service.execute_aggregation(
             aggregation.sift_id,
             aggregation.pipeline,
-            org_id=org_id,
         )
-
-        # Update last_run_at
         await self._update(agg_id, {"last_run_at": datetime.now(timezone.utc)})
-
         return results, aggregation.pipeline
 
-    async def regenerate(self, agg_id: str, org_id: Optional[str] = None) -> Aggregation:
+    async def regenerate(self, agg_id: str) -> Aggregation:
         """Reset to generating and kick off pipeline re-generation."""
-        aggregation = await self.get(agg_id, org_id=org_id)
+        aggregation = await self.get(agg_id)
         if not aggregation:
             raise ValueError(f"Aggregation {agg_id} not found")
 
@@ -148,27 +126,20 @@ class AggregationService:
 
         asyncio.create_task(
             self._generate_and_store_pipeline(
-                agg_id, aggregation.sift_id, aggregation.aggregation_query, org_id
+                agg_id, aggregation.sift_id, aggregation.aggregation_query
             )
         )
 
-        return await self.get(agg_id, org_id=org_id)
+        return await self.get(agg_id)
 
     async def live_query(
-        self, sift_id: str, query: str, org_id: Optional[str] = None
+        self, sift_id: str, query: str
     ) -> tuple[list[dict[str, Any]], list]:
-        """
-        Run a one-off NL query against a sift's results.
-        Returns (results, pipeline_list).
-        """
-        samples = await self.results_service.get_sample_records(
-            sift_id, limit=10, org_id=org_id
-        )
+        """Run a one-off NL query against a sift's results."""
+        samples = await self.results_service.get_sample_records(sift_id, limit=10)
         pipeline_json = await pipeline_agent.generate_pipeline(query, samples)
         pipeline_list = json.loads(pipeline_json)
-        results = await self.results_service.execute_aggregation(
-            sift_id, pipeline_list, org_id=org_id
-        )
+        results = await self.results_service.execute_aggregation(sift_id, pipeline_list)
         return results, pipeline_list
 
     async def _update(self, agg_id: str, updates: dict) -> None:

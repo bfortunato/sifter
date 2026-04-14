@@ -11,8 +11,7 @@ import logo from "@/assets/logo.svg";
 import { SiftsPage } from "@/pages/SiftsPage";
 import { SiftDetailPage } from "@/pages/SiftDetailPage";
 import { ChatPage } from "@/pages/ChatPage";
-import LoginPage from "@/pages/LoginPage";
-import RegisterPage from "@/pages/RegisterPage";
+import SetupPage from "@/pages/SetupPage";
 import LandingPage from "@/pages/LandingPage";
 import SettingsPage from "@/pages/SettingsPage";
 import FolderBrowserPage from "@/pages/FolderBrowserPage";
@@ -34,7 +33,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 function Sidebar() {
-  const { isAuthenticated, user, logout } = useAuthContext();
+  const { isAuthenticated, logout } = useAuthContext();
 
   if (!isAuthenticated) return null;
 
@@ -73,17 +72,12 @@ function Sidebar() {
           <Settings className="h-4 w-4 shrink-0" />
           Settings
         </NavLink>
-        {user?.email && (
-          <p className="px-3 py-1 text-xs text-muted-foreground truncate">
-            {user.email}
-          </p>
-        )}
         <button
           onClick={logout}
           className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors w-full text-left"
         >
           <LogOut className="h-4 w-4 shrink-0" />
-          Logout
+          Disconnect
         </button>
       </div>
     </aside>
@@ -91,7 +85,15 @@ function Sidebar() {
 }
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated, isLoading } = useAuthContext();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground text-sm">Loading…</div>
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return (
@@ -155,22 +157,20 @@ function AppRoutes() {
                 </ProtectedRoute>
               }
             />
-            {/* Fallback for public routes when already authenticated */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            {/* Setup accessible even when authenticated (to change key) */}
+            <Route path="/setup" element={<SetupPage />} />
           </Routes>
         </main>
       </div>
     );
   }
 
-  // Unauthenticated: no sidebar, full-screen public routes
+  // Unauthenticated
   return (
     <div className="min-h-screen bg-background">
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/setup" element={<SetupPage />} />
         <Route
           path="*"
           element={

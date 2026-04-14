@@ -14,7 +14,6 @@ class SiftStatus(str, Enum):
 
 class Sift(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
-    organization_id: Optional[str] = None
     name: str
     description: str = ""
     instructions: str

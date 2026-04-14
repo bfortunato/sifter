@@ -12,16 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
-import { useAuthContext } from "../context/AuthContext";
 import { APIKey } from "../api/types";
 
-type Section = "profile" | "api-keys" | "webhooks" | "organization";
+type Section = "api-keys" | "webhooks";
 
 const sections: { id: Section; label: string }[] = [
-  { id: "profile", label: "Profile" },
   { id: "api-keys", label: "API Keys" },
   { id: "webhooks", label: "Webhooks" },
-  { id: "organization", label: "Organization" },
 ];
 
 function formatDate(iso: string) {
@@ -29,7 +26,7 @@ function formatDate(iso: string) {
 }
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<Section>("profile");
+  const [activeSection, setActiveSection] = useState<Section>("api-keys");
 
   return (
     <div className="flex h-full">
@@ -56,33 +53,8 @@ export default function SettingsPage() {
       {/* Content */}
       <div className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-2xl">
-          {activeSection === "profile" && <ProfileSection />}
           {activeSection === "api-keys" && <ApiKeysSection />}
           {activeSection === "webhooks" && <WebhooksSection />}
-          {activeSection === "organization" && <OrganizationSection />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProfileSection() {
-  const { user } = useAuthContext();
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Profile</h2>
-        <p className="text-sm text-muted-foreground mt-1">Your account information</p>
-      </div>
-      <div className="space-y-4">
-        <div className="space-y-1">
-          <Label className="text-muted-foreground text-xs uppercase tracking-wide">Email</Label>
-          <p className="text-sm font-medium">{user?.email ?? "—"}</p>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-muted-foreground text-xs uppercase tracking-wide">Full Name</Label>
-          <p className="text-sm font-medium">{user?.full_name ?? "—"}</p>
         </div>
       </div>
     </div>
@@ -362,14 +334,3 @@ function WebhooksSection() {
   );
 }
 
-function OrganizationSection() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Organization</h2>
-        <p className="text-sm text-muted-foreground mt-1">Manage your organization settings</p>
-      </div>
-      <p className="text-sm text-muted-foreground">Organization settings coming soon.</p>
-    </div>
-  );
-}

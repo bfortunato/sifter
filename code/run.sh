@@ -19,7 +19,6 @@ cleanup() {
   for pid in "${PIDS[@]}"; do
     kill "$pid" 2>/dev/null || true
   done
-  # Stop MongoDB container if we started it
   if [[ "${MONGO_STARTED:-0}" == "1" ]]; then
     info "Stopping MongoDB container..."
     docker stop sifter-mongo 2>/dev/null || true
@@ -37,7 +36,6 @@ check_cmd() {
   fi
 }
 check_cmd uv
-check_cmd npm
 check_cmd docker
 
 # ---- Load .env ----
@@ -84,42 +82,27 @@ else
   info "Python venv found — skipping uv sync (run 'uv sync' manually to update)"
 fi
 
-# ---- Frontend dependencies ----
-if [[ ! -d frontend/node_modules ]]; then
-  info "Installing frontend dependencies (npm install)..."
-  (cd frontend && npm install --silent)
-fi
-
 # ---- Start API ----
 info "Starting API server on http://localhost:${SIFTER_PORT:-8000} ..."
 uv run uvicorn sifter.main:app --host 0.0.0.0 --port "${SIFTER_PORT:-8000}" --reload &
 PIDS+=($!)
-API_PID=$!
 
 # Wait for API to be ready
 info "Waiting for API to be ready..."
 for i in $(seq 1 20); do
   if curl -sf "http://localhost:${SIFTER_PORT:-8000}/health" &>/dev/null; then
-    success "API ready → http://localhost:${SIFTER_PORT:-8000}/docs"
     break
   fi
   sleep 1
 done
 
-# ---- Start Frontend ----
-info "Starting frontend dev server on http://localhost:3000 ..."
-(cd frontend && npm run dev -- --host 0.0.0.0 --clearScreen false) &
-PIDS+=($!)
-
 echo ""
 success "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-success "  Sifter is running!"
-success "  UI  →  http://localhost:3000"
-success "  API →  http://localhost:${SIFTER_PORT:-8000}"
+success "  Sifter API is running!"
+success "  API  → http://localhost:${SIFTER_PORT:-8000}"
 success "  Docs → http://localhost:${SIFTER_PORT:-8000}/docs"
 success "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-info "Press Ctrl+C to stop everything."
+info "Press Ctrl+C to stop."
 
-# Keep alive
 wait

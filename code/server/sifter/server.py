@@ -52,6 +52,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(config.storage_path, exist_ok=True)
 
     db = get_db()
+    app.state.db = db  # expose via request.app.state.db for cloud handlers
     await SiftService(db).ensure_indexes()
     await AggregationService(db).ensure_indexes()
     await ApiKeyService(db).ensure_indexes()
@@ -61,6 +62,13 @@ async def lifespan(app: FastAPI):
 
     # Start background document processing workers
     _worker_tasks = start_workers(config.max_workers, db)
+
+    # Mount frontend static files last, after all routers (including cloud overrides)
+    # have been registered at import time. Mounting at module level would place the
+    # catch-all StaticFiles before any routers added by cloud/main.py.
+    frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
+    if frontend_dist.exists():
+        app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
 
     logger.info("sifter_ready")
 
@@ -135,12 +143,6 @@ async def health():
         status_code=status_code,
         content={"status": overall, "version": "0.1.0", "components": components}
     )
-
-
-# Serve frontend static files if built (code/frontend/dist relative to monorepo root)
-_frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
-if _frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
 
 
 def run():

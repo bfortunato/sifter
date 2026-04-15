@@ -153,12 +153,13 @@ async def test_get_records_empty(client):
 
 
 async def _insert_records(extraction_id, records):
+    import uuid
     from sifter.db import get_db
     from sifter.services.sift_results import SiftResultsService
     svc = SiftResultsService(get_db())
     await svc.ensure_indexes()
-    for doc_id, doc_type, conf, data in records:
-        await svc.insert_result(extraction_id, doc_id, doc_type, conf, data)
+    for filename, doc_type, conf, data in records:
+        await svc.insert_result(extraction_id, str(uuid.uuid4()), filename, doc_type, conf, data)
 
 
 async def test_get_records_with_data(client):

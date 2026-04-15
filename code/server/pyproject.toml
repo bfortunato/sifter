@@ -46,6 +46,7 @@ dev = [
     "pytest-mock>=3.14.0",
     "respx>=0.21.0",
     "fpdf2>=2.8.7",
+    "sifter-ai",
 ]
 
 [project.scripts]
@@ -60,6 +61,9 @@ packages = ["sifter"]
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+sifter-ai = { path = "../sdk", editable = true }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

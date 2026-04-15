@@ -21,9 +21,10 @@ Sifter bridges document intelligence and data analytics. Users define what they 
 - **Multi-document pipelines**: Organize documents into folders linked to one or more extractors — every upload is processed automatically
 - **Queryable results**: Run ad-hoc natural language queries and save named aggregations backed by MongoDB pipelines
 - **Conversational Q&A**: Chat with your extracted data; the AI writes and executes queries on your behalf
-- **Multi-tenant by default**: Everything is scoped to an organization; teams share extractors, folders, and results securely
+- **Web UI included**: Sifter ships with a built-in React UI for managing sifts, folders, chat, and settings — no separate frontend deployment needed
+- **Multi-tenant by default**: Everything is scoped to an organization; teams share extractors, folders, and results securely (multi-tenancy + billing via `sifter-cloud`)
 - **Open and self-hostable**: No vendor lock-in; bring your own LLM API key; runs on any server with MongoDB
 
 ## Long-term Direction
 
-Sifter aims to become the standard self-hosted backend for document intelligence workflows — usable standalone via the web UI, embeddable in custom applications via the REST API or Python SDK, and extensible through pluggable extraction agents.
+Sifter aims to become the standard self-hosted backend for document intelligence workflows — usable standalone via the web UI, embeddable in custom applications via the REST API or Python SDK, and extensible through pluggable extraction agents. The managed cloud offering (`sifter-cloud`) adds multi-tenant organization management, Stripe billing, and usage metering on top of the same OSS engine.

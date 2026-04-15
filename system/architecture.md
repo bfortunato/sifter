@@ -17,10 +17,8 @@ status: synced
 - **Logging**: structlog
 - **Validation**: Pydantic v2
 - **Settings**: pydantic-settings with `SIFTER_` env prefix
-- **Package**: `pyproject.toml` (publishable as `sifter-ai` on PyPI)
-- **SDK**: pure HTTP client (`httpx`) wrapping the REST API — no direct mode
-
-> **No frontend in this repo.** The React UI lives in `sifter-cloud`. This repo is API + SDK only.
+- **Package**: `sifter-server` on PyPI — namespace package `sifter` (no `__init__.py`)
+- **SDK**: separate package `sifter-ai` on PyPI (`code/sdk/`) — pure HTTP client (`httpx`), shares `sifter` namespace
 
 ## Auth Middleware
 
@@ -64,7 +62,7 @@ Invalid key (present but unrecognized) always raises HTTP 401.
 | `POST /api/folders/{id}/documents` | 30 / minute |
 | `POST /api/sifts/{id}/upload` | 30 / minute |
 
-Limiter lives in `sifter/limiter.py` and is imported by `main.py`.
+Limiter lives in `sifter/limiter.py` and is imported by `sifter/server.py`.
 
 ## Background Document Processing Queue
 
@@ -160,58 +158,87 @@ app.dependency_overrides[get_usage_limiter] = lambda: StripeLimiter()
 app.dependency_overrides[get_email_sender]  = lambda: ResendEmailSender()
 ```
 
+## Frontend
+
+- **Framework**: React 18 + Vite + TypeScript
+- **UI components**: shadcn/ui + Tailwind CSS
+- **State**: TanStack React Query + React Router v6
+- **Location**: `code/frontend/`
+- **Mode-aware**: adapts UI based on `GET /api/config` response (`mode: "oss"` | `"cloud"`)
+- In dev: Vite on `:3000` proxies `/api` to FastAPI `:8000`
+- In production: FastAPI serves `frontend/dist/` via `StaticFiles` on `/`
+
 ## Project Layout
 
 ```
 code/
-├── pyproject.toml
-├── Dockerfile
-├── docker-compose.yml
-├── run.sh                    # starts MongoDB + API (no frontend)
-├── sifter/
-│   ├── main.py
-│   ├── config.py
-│   ├── auth.py               # Principal, get_current_principal, JWT + bcrypt helpers
-│   ├── db.py                 # motor client, get_db()
-│   ├── limiter.py            # slowapi Limiter instance
-│   ├── storage.py            # StorageBackend protocol + FilesystemBackend, S3Backend, GCSBackend
-│   ├── models/
-│   │   ├── user.py           # User (for auth), APIKey
-│   │   ├── sift.py           # Sift, SiftStatus
-│   │   ├── sift_result.py    # SiftResult
-│   │   ├── document.py       # Folder, Document, FolderExtractor, DocumentSiftStatus
-│   │   ├── aggregation.py    # Aggregation
-│   │   ├── processing_task.py  # ProcessingTask (queue)
-│   │   └── webhook.py        # Webhook
-│   ├── services/
-│   │   ├── api_key_service.py
-│   │   ├── document_service.py
-│   │   ├── document_processor.py   # MongoDB polling queue + workers
-│   │   ├── sift_service.py
-│   │   ├── sift_results.py
-│   │   ├── aggregation_service.py
-│   │   ├── sift_agent.py           # LLM extraction agent
-│   │   ├── pipeline_agent.py       # aggregation pipeline generator
-│   │   ├── qa_agent.py             # chat / Q&A agent
-│   │   ├── webhook_service.py
-│   │   ├── limits.py               # UsageLimiter protocol + NoopLimiter + get_usage_limiter()
-│   │   └── email.py                # EmailSender protocol + NoopEmailSender + get_email_sender()
-│   ├── api/
-│   │   ├── auth.py
-│   │   ├── keys.py
-│   │   ├── orgs.py           # stub router — org management is cloud-only
-│   │   ├── sifts.py
-│   │   ├── folders.py
-│   │   ├── documents.py
-│   │   ├── aggregations.py
-│   │   ├── chat.py
-│   │   └── webhooks.py
-│   ├── prompts/
-│   │   ├── extraction.md
-│   │   ├── aggregation_pipeline.md
-│   │   ├── chat_agent.md
-│   │   └── qa_agent.md
-│   └── sdk/
-├── tests/
+├── server/                        ← sifter-server package (PyPI: sifter-server)
+│   ├── pyproject.toml
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   ├── run.sh                     # starts MongoDB + API
+│   ├── sifter/                    # namespace package (no __init__.py)
+│   │   ├── server.py              # FastAPI app, lifespan, routers, StaticFiles mount
+│   │   ├── config.py
+│   │   ├── auth.py                # Principal, get_current_principal, JWT + bcrypt helpers
+│   │   ├── db.py                  # motor client, get_db()
+│   │   ├── limiter.py             # slowapi Limiter instance
+│   │   ├── storage.py             # StorageBackend protocol + FilesystemBackend, S3Backend, GCSBackend
+│   │   ├── models/
+│   │   │   ├── user.py            # User (for auth), APIKey
+│   │   │   ├── sift.py            # Sift, SiftStatus
+│   │   │   ├── sift_result.py     # SiftResult
+│   │   │   ├── document.py        # Folder, Document, FolderExtractor, DocumentSiftStatus
+│   │   │   ├── aggregation.py     # Aggregation
+│   │   │   ├── processing_task.py # ProcessingTask (queue)
+│   │   │   └── webhook.py         # Webhook
+│   │   ├── services/
+│   │   │   ├── api_key_service.py
+│   │   │   ├── document_service.py
+│   │   │   ├── document_processor.py   # MongoDB polling queue + workers
+│   │   │   ├── sift_service.py
+│   │   │   ├── sift_results.py
+│   │   │   ├── aggregation_service.py
+│   │   │   ├── sift_agent.py           # LLM extraction agent
+│   │   │   ├── pipeline_agent.py       # aggregation pipeline generator
+│   │   │   ├── qa_agent.py             # chat / Q&A agent
+│   │   │   ├── webhook_service.py
+│   │   │   ├── limits.py               # UsageLimiter protocol + NoopLimiter + get_usage_limiter()
+│   │   │   └── email.py                # EmailSender protocol + NoopEmailSender + get_email_sender()
+│   │   ├── api/
+│   │   │   ├── auth.py
+│   │   │   ├── keys.py
+│   │   │   ├── orgs.py            # stub router — org management is cloud-only
+│   │   │   ├── sifts.py
+│   │   │   ├── folders.py
+│   │   │   ├── documents.py
+│   │   │   ├── aggregations.py
+│   │   │   ├── chat.py
+│   │   │   ├── config.py          # GET /api/config → { "mode": "oss" }
+│   │   │   └── webhooks.py
+│   │   └── prompts/
+│   │       ├── extraction.md
+│   │       ├── aggregation_pipeline.md
+│   │       ├── chat_agent.md
+│   │       └── qa_agent.md
+│   └── tests/
+├── sdk/                           ← sifter-ai package (PyPI: sifter-ai)
+│   ├── pyproject.toml
+│   └── sifter/
+│       ├── __init__.py            # exports Sifter, SiftHandle, FolderHandle
+│       └── client.py
+├── frontend/                      ← React UI
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── context/               # AuthContext, ConfigContext
+│       ├── lib/
+│       │   └── apiFetch.ts        # auth-injecting fetch wrapper
+│       ├── api/
+│       ├── hooks/
+│       ├── pages/
+│       └── components/
 └── examples/
 ```
+
+> **Namespace packages**: `sifter-server` and `sifter-ai` share the `sifter` Python namespace via Python 3.3+ implicit namespace packages. The SDK owns `sifter/__init__.py`; the server has no `__init__.py`. When only `sifter-server` is installed, `from sifter.server import app` works normally. When both are installed, `from sifter import Sifter` also works.

@@ -5,14 +5,11 @@ status: synced
 
 # Deployment
 
-> **Note:** This document covers the OSS `sifter-ai` backend only (API + SDK, no UI).
-> For the full product with React frontend, see the `sifter-cloud` repo.
-
 ## Deployment Methods
 
 ### 1. Development (run.sh)
 
-`code/run.sh` starts the API stack locally:
+`code/server/run.sh` starts the API stack locally:
 
 1. Starts a MongoDB container (`sifter-mongo`) via Docker
 2. Installs Python deps with `uv sync` if `.venv` is missing
@@ -21,33 +18,39 @@ status: synced
 Requirements: `uv`, `docker`
 
 ```bash
-cd code
+cd code/server
 cp .env.example .env   # edit SIFTER_LLM_API_KEY
 ./run.sh
 ```
 
+To also run the frontend in dev:
+```bash
+cd code/frontend
+npm install && npm run dev   # Vite on :3000
+```
+
 ### 2. Docker Compose (production-ready)
 
-`code/docker-compose.yml` defines two services:
+`code/server/docker-compose.yml` defines two services:
 
 | Service | Image | Port | Purpose |
 |---------|-------|------|---------|
 | `mongodb` | mongo:7 | 27017 | Persistent database with healthcheck |
-| `api` | built from `code/Dockerfile` | 8000 | FastAPI backend |
+| `api` | built from `code/server/Dockerfile` | 8000 | FastAPI backend + React UI |
 
 Start with:
 ```bash
-cp code/.env.example code/.env
-docker compose -f code/docker-compose.yml up -d
+cp code/server/.env.example code/server/.env
+docker compose -f code/server/docker-compose.yml up -d
 ```
 
 ### 3. SDK only
 
-The Python SDK (`pip install sifter-ai`) only requires the API to be running. No frontend needed.
+The Python SDK (`pip install sifter-ai`) only requires the API to be running.
 
 ## Docker Image
 
-### API (`code/Dockerfile`)
+### API (`code/server/Dockerfile`)
 
 - Base: `python:3.12-slim`
 - Uses `uv` for dependency installation from lockfile (`uv sync --no-dev --frozen`)

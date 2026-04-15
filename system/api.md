@@ -127,6 +127,16 @@ Event types: `sift.document.processed`, `sift.completed`, `sift.error`, `folder.
 Chat body: `{ "message": str, "sift_id"?: str, "history"?: list }`
 Chat response: `{ "response": str, "data"?: list, "pipeline"?: list }`
 
+## Config
+
+`GET /api/config` — no auth required. Returns deployment-level configuration.
+
+```json
+{ "mode": "oss" }
+```
+
+In `sifter-cloud`, this is overridden to return `{ "mode": "cloud" }`. The frontend uses this to show/hide billing, team management, and org switching.
+
 ## Health
 
 `GET /health` — no auth required.

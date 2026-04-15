@@ -9,8 +9,8 @@ status: synced
 
 Sifter uses an **open-core model**:
 
-- **`sifter-ai`** (public, Apache-2.0) — the core extraction engine. REST API + Python SDK. No UI, no billing, no usage limits.
-- **`sifter-cloud`** (private) — a monorepo with the React frontend + cloud backend. Extends `sifter-ai` with billing, subscriptions, usage metering, team invitations, and multi-tenant auth.
+- **`sifter`** (public, Apache-2.0) — the core extraction engine + React UI + Python SDK. No billing, no usage limits, single-tenant.
+- **`sifter-cloud`** (private) — a backend-only extension. Extends `sifter-server` with billing, subscriptions, usage metering, team invitations, and multi-tenant auth.
 
 ---
 
@@ -19,8 +19,8 @@ Sifter uses an **open-core model**:
 `sifter-cloud` does not fork the OSS code. It imports and extends:
 
 ```python
-# sifter-cloud/sifter_cloud/main.py
-from sifter.main import app          # the OSS FastAPI app
+# sifter-cloud/code/backend/sifter_cloud/main.py
+from sifter.server import app          # the OSS FastAPI app
 
 from .api import billing, admin, invites, limits
 app.include_router(billing.router)
@@ -68,69 +68,34 @@ Default: `NoopEmailSender` (silently drops all emails). Dependency: `get_email_s
 
 ```
 sifter-cloud/
-├── pyproject.toml              ← depends on sifter-ai>=0.1.0
-├── run.sh                      ← dev: MongoDB + API + Vite
-├── Dockerfile                  ← multi-stage: Node build + Python API
-├── docker-compose.cloud.yml
-├── frontend/                   ← React 18 + Vite + Tailwind (the UI)
-│   ├── package.json
-│   ├── vite.config.ts          ← proxies /api → :8000 in dev
-│   └── src/
-│       ├── pages/              ← all UI pages (including cloud-only billing, team)
-│       ├── api/
-│       ├── hooks/
-│       └── components/
-├── sifter_cloud/
-│   ├── main.py                 ← imports OSS app, mounts routers, serves frontend/dist
-│   ├── auth.py                 ← CloudPrincipal (org_id + user_id), get_cloud_principal
-│   ├── config.py               ← SIFTER_CLOUD_ prefix env vars
-│   ├── api/
-│   │   ├── billing.py          ← Stripe webhook, portal, subscription
-│   │   ├── admin.py            ← tenant list, usage (superadmin)
-│   │   ├── invites.py          ← org email invitations
-│   │   └── limits.py           ← usage quota endpoint
-│   ├── services/
-│   │   ├── billing_service.py  ← Stripe API integration
-│   │   ├── email_service.py    ← Resend transactional email
-│   │   ├── metering_service.py ← per-org usage aggregation
-│   │   └── limits_service.py   ← plan enforcement (StripeLimiter)
-│   └── models/
-│       ├── subscription.py     ← Plan, PLAN_LIMITS, Subscription
-│       ├── usage.py            ← UsageRecord, UsageSummary
-│       └── invite.py           ← Invite
-└── tests/
+├── code/
+│   └── backend/                ← Python cloud extension
+│       ├── pyproject.toml      # depends on sifter-server>=0.1.0
+│       ├── sifter_cloud/
+│       │   ├── main.py         # imports OSS app, mounts routers
+│       │   ├── auth.py         # CloudPrincipal (org_id + user_id), get_cloud_principal
+│       │   ├── config.py       # SIFTER_CLOUD_ prefix env vars
+│       │   ├── api/
+│       │   │   ├── billing.py  # Stripe webhook, portal, subscription
+│       │   │   ├── admin.py    # tenant list, usage (superadmin)
+│       │   │   ├── invites.py  # org email invitations
+│       │   │   ├── limits.py   # usage quota endpoint
+│       │   │   └── config.py   # overrides GET /api/config → { "mode": "cloud" }
+│       │   ├── services/
+│       │   │   ├── billing_service.py  # Stripe API integration
+│       │   │   ├── email_service.py    # Resend transactional email
+│       │   │   ├── metering_service.py # per-org usage aggregation
+│       │   │   └── limits_service.py   # plan enforcement (StripeLimiter)
+│       │   └── models/
+│       │       ├── subscription.py     # Plan, PLAN_LIMITS, Subscription
+│       │       ├── usage.py            # UsageRecord, UsageSummary
+│       │       └── invite.py           # Invite
+│       └── tests/
+├── Dockerfile                  ← multi-stage: OSS frontend build + Python API
+└── docker-compose.cloud.yml
 ```
 
----
-
-## Frontend in sifter-cloud
-
-### Development
-
-Vite runs on `:3000`, proxies `/api` and `/health` to FastAPI on `:8000`:
-
-```ts
-// vite.config.ts
-server: {
-  proxy: {
-    "/api": { target: "http://localhost:8000", changeOrigin: true },
-  }
-}
-```
-
-### Production
-
-The Dockerfile multi-stage build:
-1. Node stage: `npm ci && npm run build` → `frontend/dist/`
-2. Python stage: copies `frontend/dist/` into the image
-
-FastAPI mounts the dist directory if it exists:
-```python
-if os.path.isdir("frontend/dist"):
-    app.mount("/", StaticFiles(directory="frontend/dist", html=True))
-```
-
-One container, one port (`:8000`), serves both API and UI.
+The frontend lives in the OSS repo (`sifter/code/frontend/`). The cloud Dockerfile builds it from the OSS source and packages it with the cloud backend. The OSS `StaticFiles` mount in `sifter/server.py` then serves the built frontend.
 
 ---
 
@@ -202,7 +167,7 @@ The JWT payload includes `org_id`: `{ "sub": user_id, "org_id": org_id, "exp": .
 | Webhooks | ✓ | ✓ |
 | Auth (API keys + JWT) | ✓ | ✓ |
 | Storage backends (FS/S3/GCS) | ✓ | ✓ |
-| React UI | — | ✓ |
+| React UI | ✓ | ✓ |
 | Multi-tenant orgs | — | ✓ |
 | Usage limits | — | ✓ |
 | Billing / subscriptions | — | ✓ |

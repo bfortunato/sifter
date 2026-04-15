@@ -7,7 +7,7 @@ status: synced
 
 A developer-facing Python package (`pip install sifter-ai`) for programmatic use of Sifter. The SDK is a pure HTTP client that always connects to a running Sifter server (local or remote). There is no direct mode.
 
-> Start the server with `./run.sh` before using the SDK.
+> Start the server with `cd code/server && ./run.sh` before using the SDK.
 
 ## Quick Start
 
@@ -56,7 +56,7 @@ sift.export_csv("output.csv")
 
 ## Folder CRUD
 
-A **Folder** is a shared document container. When a document is added, modified, or deleted, all linked sifts are updated automatically. A folder can feed multiple sifts; a sift can be linked to multiple folders.
+A **Folder** is a shared document container. When a document is added, all linked sifts are updated automatically. A folder can feed multiple sifts; a sift can be linked to multiple folders.
 
 ```python
 folder = s.create_folder("Contracts 2024")
@@ -101,54 +101,19 @@ Register local callbacks for events on a sift or folder. The SDK polls internall
 `on()` accepts a single event name, a list of event names, or a wildcard pattern. Wildcards use `*` to match any segment.
 
 ```python
-# Single event
 sift.on("document.processed", lambda doc, record: print(record))
-
-# Multiple events
 sift.on(["document.processed", "error"], lambda doc, record: print(record))
-
-# Wildcard — all events on this sift
 sift.on("*", lambda doc, record: print(record))
-
-# Wildcard — all document-level events
-sift.on("document.*", lambda doc, record: print(record))
-
 folder.on("document.uploaded", lambda doc: print(f"New: {doc.filename}"))
-folder.on("*", lambda doc: print(f"Event on: {doc.filename}"))
 ```
 
 ## Server-Side Webhooks
 
-Register a URL to receive HTTP POST requests when events occur. Useful for production integrations.
-
-`events` accepts a single event name, a list, or a wildcard pattern.
+Register a URL to receive HTTP POST requests when events occur.
 
 ```python
-# Single event
-s.register_hook(
-    events="sift.document.processed",
-    url="https://my-app.com/webhook",
-    sift_id=sift.id,  # optional filter
-)
-
-# Multiple events
-s.register_hook(
-    events=["sift.document.processed", "sift.error"],
-    url="https://my-app.com/webhook",
-)
-
-# Wildcard — all sift-level events
-s.register_hook(
-    events="sift.*",
-    url="https://my-app.com/webhook",
-)
-
-# Wildcard — all events
-s.register_hook(
-    events="*",
-    url="https://my-app.com/webhook",
-)
-
+s.register_hook(events="sift.*", url="https://my-app.com/webhook", sift_id=sift.id)
+s.register_hook(events=["sift.completed", "sift.error"], url="https://my-app.com/webhook")
 hooks = s.list_hooks()
 s.delete_hook(hook_id)
 ```

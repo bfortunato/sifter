@@ -21,12 +21,30 @@ class SiftResultsService:
         self.col = db[COLLECTION]
 
     async def ensure_indexes(self):
-        # Drop stale index from before extraction_id → sift_id rename
+        # Drop stale indexes from before extraction_id → sift_id rename
         for stale in ("extraction_document_unique", "sift_document_unique"):
             try:
                 await self.col.drop_index(stale)
             except Exception:
                 pass  # index doesn't exist — fine
+
+        # Also drop sift_filename_unique before recreating — needed when the
+        # collection has pre-migration rows where filename was null, which
+        # cause DuplicateKeyError during index build.
+        try:
+            await self.col.drop_index("sift_filename_unique")
+        except Exception:
+            pass
+
+        # Remove rows that predate the document_id/filename split (filename: null).
+        # These are invalid stale records that cannot satisfy the new unique constraint.
+        result = await self.col.delete_many({"filename": None})
+        if result.deleted_count:
+            logger.warning(
+                "sift_results_stale_rows_removed",
+                count=result.deleted_count,
+                reason="filename_null_pre_migration",
+            )
 
         # Idempotency: one result per (sift, filename)
         await self.col.create_index(

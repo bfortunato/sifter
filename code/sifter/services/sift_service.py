@@ -111,13 +111,16 @@ class SiftService:
         schema = sift.schema
         errors = []
 
+        from ..storage import local_path as storage_local_path
+
         for idx, file_path in enumerate(file_paths):
             try:
-                result = await sift_agent.extract(
-                    file_path=file_path,
-                    instructions=sift.instructions,
-                    schema=schema,
-                )
+                async with storage_local_path(file_path) as local_file:
+                    result = await sift_agent.extract(
+                        file_path=local_file,
+                        instructions=sift.instructions,
+                        schema=schema,
+                    )
 
                 document_id = Path(file_path).name
                 await self.results_service.insert_result(
@@ -179,11 +182,13 @@ class SiftService:
         if not sift:
             raise ValueError(f"Sift {sift_id} not found")
 
-        result = await sift_agent.extract(
-            file_path=file_path,
-            instructions=sift.instructions,
-            schema=sift.schema,
-        )
+        from ..storage import local_path as storage_local_path
+        async with storage_local_path(file_path) as local_file:
+            result = await sift_agent.extract(
+                file_path=local_file,
+                instructions=sift.instructions,
+                schema=sift.schema,
+            )
 
         document_id = Path(file_path).name
         stored = await self.results_service.insert_result(

@@ -1,15 +1,18 @@
 from typing import Optional
 
 import structlog
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel
 
 from ..auth import Principal, get_current_principal
 from ..config import config
 from ..db import get_db
+from ..limiter import limiter
 from ..models.document import Folder
 from ..services.document_processor import enqueue
 from ..services.document_service import DocumentService
+from ..services.limits import NoopLimiter, get_usage_limiter
+from ..storage import get_storage_backend
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/folders", tags=["folders"])
@@ -275,10 +278,13 @@ async def list_documents(
 
 
 @router.post("/{folder_id}/documents", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("30/minute")
 async def upload_document(
+    request: Request,
     folder_id: str,
-    _: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
+    usage: NoopLimiter = Depends(get_usage_limiter),
     file: UploadFile = File(...),
 ):
     svc = DocumentService(db)
@@ -294,11 +300,17 @@ async def upload_document(
             detail=f"File exceeds max size of {config.max_file_size_mb}MB",
         )
 
+    await usage.check_upload(principal.key_id, len(content))
+
+    storage = get_storage_backend()
+    storage_path = await storage.save(folder_id, file.filename, content)
+
     doc = await svc.save_document(
-        file_bytes=content,
         filename=file.filename,
         content_type=file.content_type or "application/octet-stream",
         folder_id=folder_id,
+        size_bytes=len(content),
+        storage_path=storage_path,
     )
 
     links = await svc.list_folder_extractors(folder_id)

@@ -29,7 +29,7 @@ Requirements: `uv`, `npm`, `docker`
 | `api` | built from `code/Dockerfile` | 8000 | FastAPI backend |
 | `frontend` | built from `code/frontend/Dockerfile` | 3000 | Nginx serving React SPA |
 
-The API service receives all `SIFTER_*` env vars. File uploads are persisted via `./uploads` volume mount.
+The API service receives all `SIFTER_*` env vars. File uploads are persisted via `./uploads` volume mount (filesystem backend only).
 
 Start with:
 ```bash
@@ -76,14 +76,35 @@ All variables use the `SIFTER_` prefix (via pydantic-settings).
 | `SIFTER_PIPELINE_MODEL` | `openai/gpt-4o-mini` | Faster model for aggregation pipelines |
 | `SIFTER_MONGODB_URI` | `mongodb://localhost:27017` | MongoDB connection string |
 | `SIFTER_MONGODB_DATABASE` | `sifter` | Database name |
+| `SIFTER_API_KEY` | `sk-dev` | Bootstrap API key — **change in production** |
+| `SIFTER_REQUIRE_API_KEY` | `false` | If `true`, unauthenticated requests return 401 |
 | `SIFTER_JWT_SECRET` | `dev-secret-...` | **Change in production** — random 64-char string |
 | `SIFTER_JWT_EXPIRE_MINUTES` | `1440` | JWT TTL (24h default) |
-| `SIFTER_STORAGE_PATH` | `./uploads` | Where uploaded files are stored |
+| `SIFTER_STORAGE_BACKEND` | `filesystem` | Storage backend: `filesystem`, `s3`, or `gcs` |
+| `SIFTER_STORAGE_PATH` | `./uploads` | Base path for filesystem backend |
 | `SIFTER_MAX_FILE_SIZE_MB` | `50` | Maximum upload size |
 | `SIFTER_MAX_WORKERS` | `4` | Concurrent document processing workers |
 | `SIFTER_HOST` | `0.0.0.0` | Bind address |
 | `SIFTER_PORT` | `8000` | Server port |
 | `SIFTER_CORS_ORIGINS` | `["http://localhost:3000"]` | Allowed CORS origins |
+
+### S3 Storage (`SIFTER_STORAGE_BACKEND=s3`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SIFTER_S3_BUCKET` | *(required)* | S3 bucket name |
+| `SIFTER_S3_REGION` | `us-east-1` | AWS region |
+| `SIFTER_S3_ACCESS_KEY_ID` | *(required)* | AWS access key |
+| `SIFTER_S3_SECRET_ACCESS_KEY` | *(required)* | AWS secret key |
+| `SIFTER_S3_ENDPOINT_URL` | *(optional)* | Custom endpoint (MinIO, R2, etc.) |
+
+### GCS Storage (`SIFTER_STORAGE_BACKEND=gcs`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SIFTER_GCS_BUCKET` | *(required)* | GCS bucket name |
+| `SIFTER_GCS_PROJECT` | *(required)* | GCP project ID |
+| `SIFTER_GCS_CREDENTIALS_FILE` | *(optional)* | Path to service account JSON; omit to use ADC |
 
 ## CI/CD (GitHub Actions)
 
@@ -104,9 +125,11 @@ Three workflows in `.github/workflows/`:
 ## Production Checklist
 
 - [ ] Set `SIFTER_JWT_SECRET` to a random 64-char string
+- [ ] Set `SIFTER_API_KEY` to a strong random value
 - [ ] Use a managed MongoDB instance (Atlas, DocumentDB, etc.) with auth
 - [ ] Set `SIFTER_CORS_ORIGINS` to your frontend domain
 - [ ] Put the API behind a reverse proxy (nginx, Caddy) with TLS
-- [ ] Mount `SIFTER_STORAGE_PATH` to a persistent volume or object storage
+- [ ] **Filesystem backend**: mount `SIFTER_STORAGE_PATH` to a persistent volume
+- [ ] **S3/GCS backend**: set `SIFTER_STORAGE_BACKEND` + credentials; no volume needed
 - [ ] Set `SIFTER_MAX_WORKERS` based on available CPU cores
 - [ ] Rotate JWT secret and all API keys after initial deployment

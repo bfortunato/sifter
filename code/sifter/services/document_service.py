@@ -2,17 +2,13 @@
 Document management service: Folders, Documents, FolderSift links,
 DocumentSiftStatus tracking. Single-tenant — no org_id.
 """
-import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Optional
 
-import aiofiles
 import structlog
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from ..config import config
 from ..models.document import (
     Document,
     DocumentSiftStatus,
@@ -128,19 +124,14 @@ class DocumentService:
 
     async def save_document(
         self,
-        file_bytes: bytes,
         filename: str,
         content_type: str,
         folder_id: str,
+        size_bytes: int,
+        storage_path: str,
     ) -> Document:
-        storage_dir = Path(config.storage_path) / folder_id
-        storage_dir.mkdir(parents=True, exist_ok=True)
-        storage_path = str(storage_dir / filename)
-
-        async with aiofiles.open(storage_path, "wb") as f:
-            await f.write(file_bytes)
-
-        size_bytes = len(file_bytes)
+        """Persist document metadata. The caller is responsible for saving
+        the file bytes to the storage backend before calling this method."""
         doc = Document(
             folder_id=folder_id,
             filename=filename,
@@ -215,11 +206,14 @@ class DocumentService:
 
     async def _delete_document_files(self, doc: dict):
         storage_path = doc.get("storage_path")
-        if storage_path and os.path.exists(storage_path):
-            try:
-                os.remove(storage_path)
-            except OSError:
-                pass
+        if not storage_path:
+            return
+        from ..storage import get_storage_backend
+        backend = get_storage_backend()
+        try:
+            await backend.delete(storage_path)
+        except Exception:
+            pass
 
     # ---- DocumentSiftStatus ----
 

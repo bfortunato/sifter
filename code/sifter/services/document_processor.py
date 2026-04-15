@@ -97,7 +97,9 @@ async def worker(db: AsyncIOMotorDatabase) -> None:
         try:
             await doc_svc.update_sift_status(document_id, sift_id, DocumentSiftStatusEnum.PROCESSING)
 
-            result = await ext_svc.process_single_document(sift_id, storage_path)
+            from ..storage import local_path as storage_local_path
+            async with storage_local_path(storage_path) as local_file:
+                result = await ext_svc.process_single_document(sift_id, local_file)
 
             await doc_svc.update_sift_status(
                 document_id, sift_id, DocumentSiftStatusEnum.DONE, sift_record_id=result.id
@@ -109,6 +111,10 @@ async def worker(db: AsyncIOMotorDatabase) -> None:
             )
 
             logger.info("document_processed", document_id=document_id, sift_id=sift_id)
+
+            # Record usage (no-op in OSS; cloud overrides get_usage_limiter)
+            from .limits import NoopLimiter
+            await NoopLimiter().record_processed(org_id="default", doc_count=1)
 
             await _dispatch_webhook(
                 db=db,

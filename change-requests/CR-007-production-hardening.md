@@ -1,6 +1,6 @@
 ---
 title: "Production Hardening: persistent queue, rate limiting, health check, pagination, S3 storage"
-status: pending
+status: applied
 author: "Bruno Fortunato"
 created-at: "2026-04-13T00:00:00.000Z"
 ---

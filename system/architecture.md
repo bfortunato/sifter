@@ -13,6 +13,7 @@ status: synced
 - **AI**: LiteLLM (multi-provider: OpenAI, Anthropic, Google, Ollama)
 - **PDF processing**: pymupdf (fitz) for text extraction + page images
 - **Auth**: `python-jose` (JWT HS256) + `passlib[bcrypt]` (password hashing)
+- **Rate limiting**: `slowapi` with `get_remote_address` key function
 - **Logging**: structlog
 - **Validation**: Pydantic v2
 - **Settings**: pydantic-settings with `SIFTER_` env prefix
@@ -26,24 +27,31 @@ status: synced
 - Lucide React (icons)
 - TanStack React Query (server state, polling)
 - React Router (routing)
-- Auth via JWT stored in `localStorage`; injected via `apiFetch` utility
+- Auth via JWT stored in `localStorage` under key `sifter_token`; injected via `apiFetch` utility
 
 ## Auth Middleware
 
 A FastAPI dependency `get_current_principal()` is applied to all protected routes:
-- Reads `Authorization: Bearer <jwt>` or `X-API-Key: sk-...` header
-- For JWT: validates signature + expiry using `python-jose` HS256; extracts `user_id` + `org_id` from payload
-- For API key: strips `sk-` prefix, computes SHA-256 hash, looks up `api_keys` collection, checks `is_active`, updates `last_used_at`
-- Returns `Principal(user_id, org_id, via: "jwt"|"api_key")`
-- Raises HTTP 401 on missing or invalid credentials
+
+```python
+@dataclass
+class Principal:
+    key_id: str  # "anonymous" | "bootstrap" | DB api_key _id | user _id (from JWT)
+```
+
+Resolution order:
+1. `X-API-Key` header present → check bootstrap key (config value) or hash-lookup in DB
+2. `Authorization: Bearer <jwt>` → decode HS256, extract `sub` (user_id)
+3. No header → `Principal(key_id="anonymous")` if `require_api_key=False`, else HTTP 401
+
+Invalid key (present but unrecognized) always raises HTTP 401.
 
 ### JWT Configuration
 
 - Algorithm: HS256
-- Secret: `SIFTER_JWT_SECRET` env var (default: dev value, logs warning in production)
+- Secret: `SIFTER_JWT_SECRET`
 - Expiry: `SIFTER_JWT_EXPIRE_MINUTES` (default: 1440 = 24h)
-- Payload: `{ "sub": user_id, "org_id": org_id, "exp": ..., "iat": ... }`
-- Organization switching: `POST /api/auth/switch-org` issues a new token with a different `org_id`
+- Payload: `{ "sub": user_id, "exp": ... }`
 
 ### API Key Format
 
@@ -52,41 +60,111 @@ A FastAPI dependency `get_current_principal()` is applied to all protected route
 - Stored: `SHA-256(key_without_sk_prefix)` as hex string in `api_keys.key_hash`
 - Full key shown once at creation, never stored
 
+## Rate Limiting
+
+`slowapi` middleware is mounted globally. Specific endpoints have per-IP limits:
+
+| Endpoint | Limit |
+|----------|-------|
+| `POST /api/auth/login` | 10 / minute |
+| `POST /api/auth/register` | 5 / minute |
+| `POST /api/folders/{id}/documents` | 30 / minute |
+| `POST /api/sifts/{id}/upload` | 30 / minute |
+
+Limiter lives in `sifter/limiter.py` and is imported by `main.py`.
+
 ## Background Document Processing Queue
 
-- Module-level `asyncio.Queue` in `sifter/services/document_processor.py`
-- `SIFTER_MAX_WORKERS` (default: 4) worker coroutines started via `asyncio.create_task()` in the FastAPI lifespan
-- Each worker: `task = await queue.get()` → set status=processing → run extraction → set status=done/error → `queue.task_done()`
-- On document upload to a folder: one `DocumentExtractionStatus(pending)` per linked extractor created, then all enqueued
-- On shutdown: drain queue gracefully in lifespan cleanup
+MongoDB-backed polling queue. Workers call `document_processor.worker()` which:
+
+1. Polls `processing_queue` collection every 2 seconds for `status=pending` tasks
+2. Claims task atomically (`findOneAndUpdate`: `status=processing`, `claimed_at=now`, `attempts++`)
+3. Runs extraction via `SiftService.process_single_document()`
+4. On success: `status=done`, updates `DocumentSiftStatus`, fires webhook
+5. On failure: if `attempts < max_attempts` → `status=pending` (retry); else `status=error`
+6. Stale `processing` tasks (claimed_at > 10 min ago) are reclaimed automatically
+
+`SIFTER_MAX_WORKERS` (default: 4) worker coroutines are started via `asyncio.create_task()` in the FastAPI lifespan.
+
+## Storage Backend
+
+Abstracted behind a `StorageBackend` protocol in `sifter/storage.py`:
+
+```python
+class StorageBackend(Protocol):
+    async def save(self, folder_id: str, filename: str, data: bytes) -> str:
+        """Save file and return storage path / key."""
+    async def load(self, path: str) -> bytes:
+        """Load file by path / key."""
+    async def delete(self, path: str) -> None:
+        """Delete file."""
+```
+
+Implementations selected by `SIFTER_STORAGE_BACKEND`:
+
+| Value | Class | Notes |
+|-------|-------|-------|
+| `filesystem` (default) | `FilesystemBackend` | Saves to `SIFTER_STORAGE_PATH` |
+| `s3` | `S3Backend` | `aioboto3`; requires `SIFTER_S3_*` vars |
+| `gcs` | `GCSBackend` | `google-cloud-storage`; requires `SIFTER_GCS_*` vars |
+
+`Document.storage_path` stores the opaque path/key returned by `backend.save()`.
 
 ## Event System
 
-- Events are emitted by the server on document processing, sift completion, and errors.
-- **SDK callbacks**: the `SiftHandle.on()` / `FolderHandle.on()` methods register Python callbacks. Wildcard matching (`*` single segment, `**` any segments) runs client-side during `wait()` polling.
-- **Webhooks**: stored in a `webhooks` collection (`org_id`, `events` pattern list, `url`, optional `sift_id` filter). On each event the server fans out to all matching webhooks via background `httpx` POST calls.
-- Event types: `sift.document.processed`, `sift.completed`, `sift.error`, `folder.document.uploaded`.
-- Wildcard matching is evaluated server-side for webhooks using the same pattern rules.
+Events are emitted on document processing completion and errors:
+
+- **Webhooks**: stored in `webhooks` collection (`events` pattern list, `url`, optional `sift_id` filter). On each event the server fans out to all matching webhooks via background `httpx` POST calls.
+- **SDK callbacks**: `SiftHandle.on()` / `FolderHandle.on()` register Python callbacks; wildcard matching runs client-side during `wait()` polling.
+
+Event types: `sift.document.processed`, `sift.completed`, `sift.error`, `folder.document.uploaded`.
+
+Wildcard matching: `*` matches one segment, `**` matches any number of segments.
 
 ## Async Aggregation Pipeline Generation
 
 - `POST /api/aggregations` returns immediately with `status=generating`
-- `asyncio.create_task(_generate_and_store_pipeline(...))` runs in background
-- Frontend polls `GET /api/aggregations/{id}` every 2 seconds until `status` becomes `ready` or `error`
-- Same pattern as extraction `status=indexing` polling
+- `asyncio.create_task(_generate_and_store_pipeline(...))` runs LLM call in background
+- Frontend polls `GET /api/aggregations/{id}` every 2 seconds until `status` is `ready` or `error`
 
-## Storage Backend
+## OSS Extension Points (CR-008)
 
-- Default: `filesystem`
-- Config: `SIFTER_STORAGE_BACKEND=filesystem`, `SIFTER_STORAGE_PATH=./uploads`
-- Files stored at `{storage_path}/{org_id}/{folder_id}/{filename}`
-- `Document.storage_path` stores the full absolute path for filesystem mode
+To support the cloud layer without forking, the OSS exposes two protocol interfaces with no-op defaults:
 
-## Multi-Tenancy
+### `UsageLimiter` (`sifter/services/limits.py`)
 
-- All MongoDB queries include `{"organization_id": principal.org_id}` filter
-- Existing documents with no `organization_id` are invisible after migration (greenfield assumption)
-- `ExtractionResultsService` always injects `organization_id` in aggregation pipelines alongside `extraction_id`
+```python
+class UsageLimiter(Protocol):
+    async def check_upload(self, org_id: str, file_size_bytes: int) -> None:
+        """Raise HTTPException(402) to block upload."""
+    async def check_sift_create(self, org_id: str) -> None:
+        """Raise HTTPException(402) to block sift creation."""
+    async def record_processed(self, org_id: str, doc_count: int) -> None:
+        """Record usage for billing metering."""
+```
+
+Default: `NoopLimiter` (always allows, records nothing).
+
+Call sites:
+- `check_upload()` — before file save in `POST /api/folders/{id}/documents` and `POST /api/sifts/{id}/upload`
+- `check_sift_create()` — before insert in `POST /api/sifts`
+- `record_processed()` — after successful extraction in `document_processor.worker()`
+
+### `EmailSender` (`sifter/services/email.py`)
+
+```python
+class EmailSender(Protocol):
+    async def send_invite(self, to: str, org_name: str, invite_url: str) -> None: ...
+    async def send_password_reset(self, to: str, reset_url: str) -> None: ...
+    async def send_usage_alert(self, to: str, org_name: str, usage_pct: float) -> None: ...
+```
+
+Default: `NoopEmailSender` (silently drops all emails).
+
+The cloud repo overrides via `app.dependency_overrides`:
+```python
+app.dependency_overrides[get_usage_limiter] = lambda: StripeLimiter(...)
+```
 
 ## Project Layout
 
@@ -95,37 +173,45 @@ code/
 ├── pyproject.toml
 ├── Dockerfile
 ├── docker-compose.yml
-├── README.md
+├── run.sh
 ├── sifter/
 │   ├── main.py
 │   ├── config.py
-│   ├── auth.py               # Principal, get_current_principal, hash_password
+│   ├── auth.py               # Principal, get_current_principal, JWT + bcrypt helpers
+│   ├── db.py                 # motor client, get_db()
+│   ├── limiter.py            # slowapi Limiter instance
+│   ├── storage.py            # StorageBackend protocol + FilesystemBackend, S3Backend, GCSBackend
 │   ├── models/
-│   │   ├── user.py           # User, Organization, OrganizationMember, APIKey
-│   │   ├── document.py       # Folder, Document, FolderExtractor, DocumentExtractionStatus
-│   │   ├── extraction.py
-│   │   ├── extraction_result.py
-│   │   └── aggregation.py
+│   │   ├── user.py           # User (for auth), APIKey
+│   │   ├── sift.py           # Sift, SiftStatus
+│   │   ├── sift_result.py    # SiftResult
+│   │   ├── document.py       # Folder, Document, FolderExtractor, DocumentSiftStatus
+│   │   ├── aggregation.py    # Aggregation
+│   │   ├── processing_task.py  # ProcessingTask (queue)
+│   │   └── webhook.py        # Webhook
 │   ├── services/
-│   │   ├── auth_service.py
+│   │   ├── api_key_service.py
 │   │   ├── document_service.py
-│   │   ├── document_processor.py   # asyncio queue + workers
-│   │   ├── qa_agent.py
-│   │   ├── extraction_service.py
-│   │   ├── extraction_results.py
+│   │   ├── document_processor.py   # MongoDB polling queue + workers
+│   │   ├── sift_service.py
+│   │   ├── sift_results.py
 │   │   ├── aggregation_service.py
-│   │   ├── extraction_agent.py
-│   │   ├── pipeline_agent.py
-│   │   └── file_processor.py
+│   │   ├── sift_agent.py           # LLM extraction agent
+│   │   ├── pipeline_agent.py       # aggregation pipeline generator
+│   │   ├── qa_agent.py             # chat / Q&A agent
+│   │   ├── webhook_service.py
+│   │   ├── limits.py               # UsageLimiter protocol + NoopLimiter (CR-008)
+│   │   └── email.py                # EmailSender protocol + NoopEmailSender (CR-008)
 │   ├── api/
 │   │   ├── auth.py
 │   │   ├── keys.py
-│   │   ├── orgs.py
+│   │   ├── orgs.py           # stub router — org management is cloud-only
+│   │   ├── sifts.py
 │   │   ├── folders.py
 │   │   ├── documents.py
-│   │   ├── extractions.py
 │   │   ├── aggregations.py
-│   │   └── chat.py
+│   │   ├── chat.py
+│   │   └── webhooks.py
 │   ├── prompts/
 │   │   ├── extraction.md
 │   │   ├── aggregation_pipeline.md

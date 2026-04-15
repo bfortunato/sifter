@@ -5,16 +5,19 @@ from typing import Optional
 
 import aiofiles
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from ..auth import Principal, get_current_principal
 from ..config import config
 from ..db import get_db
+from ..limiter import limiter
 from ..models.sift import Sift, SiftStatus
+from ..services.limits import NoopLimiter, get_usage_limiter
 from ..services.sift_results import SiftResultsService
 from ..services.sift_service import SiftService
+from ..storage import get_storage_backend
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/sifts", tags=["sifts"])
@@ -46,9 +49,11 @@ class ChatRequest(BaseModel):
 @router.post("", response_model=dict)
 async def create_sift(
     body: CreateSiftRequest,
-    _: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
+    usage: NoopLimiter = Depends(get_usage_limiter),
 ):
+    await usage.check_sift_create(principal.key_id)
     svc = SiftService(db)
     await svc.ensure_indexes()
     sift = await svc.create(
@@ -114,11 +119,14 @@ async def delete_sift(
 
 
 @router.post("/{sift_id}/upload")
+@limiter.limit("30/minute")
 async def upload_documents(
+    request: Request,
     sift_id: str,
     background_tasks: BackgroundTasks,
-    _: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
+    usage: NoopLimiter = Depends(get_usage_limiter),
     files: list[UploadFile] = File(...),
 ):
     svc = SiftService(db)
@@ -126,23 +134,20 @@ async def upload_documents(
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
 
-    upload_dir = Path(config.upload_dir) / sift_id
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
     max_bytes = config.max_file_size_mb * 1024 * 1024
+    storage = get_storage_backend()
     saved_paths = []
 
     for file in files:
-        dest = upload_dir / file.filename
         content = await file.read()
         if len(content) > max_bytes:
             raise HTTPException(
                 status_code=413,
                 detail=f"File {file.filename} exceeds max size of {config.max_file_size_mb}MB",
             )
-        async with aiofiles.open(dest, "wb") as f:
-            await f.write(content)
-        saved_paths.append(str(dest))
+        await usage.check_upload(principal.key_id, len(content))
+        storage_path = await storage.save(sift_id, file.filename, content)
+        saved_paths.append(storage_path)
 
     background_tasks.add_task(svc.process_documents, sift_id, saved_paths)
 

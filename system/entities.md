@@ -5,6 +5,8 @@ status: synced
 
 # Domain Models
 
+> **Scope:** OSS single-tenant models. Organization/multi-tenancy models live in `sifter-cloud` — see `system/cloud.md`.
+
 ## User
 
 MongoDB collection: `users`
@@ -14,39 +16,10 @@ Unique index on `email`.
 ```python
 {
     "_id": ObjectId,
-    "email": str,                # unique
-    "password_hash": str,        # bcrypt hash
+    "email": str,                # unique, stored lowercase
+    "hashed_password": str,      # bcrypt hash
     "full_name": str,
     "created_at": datetime
-}
-```
-
-## Organization
-
-MongoDB collection: `organizations`
-
-```python
-{
-    "_id": ObjectId,
-    "name": str,
-    "slug": str,                 # URL-safe, derived from email on registration
-    "created_at": datetime
-}
-```
-
-## OrganizationMember
-
-MongoDB collection: `organization_members`
-
-Compound index on `(org_id, user_id)`.
-
-```python
-{
-    "_id": ObjectId,
-    "org_id": str,
-    "user_id": str,
-    "role": "owner" | "admin" | "member",
-    "joined_at": datetime
 }
 ```
 
@@ -54,7 +27,7 @@ Compound index on `(org_id, user_id)`.
 
 MongoDB collection: `api_keys`
 
-Index on `key_hash`.
+Unique sparse index on `key_hash`. Index on `is_active`.
 
 ```python
 {
@@ -62,8 +35,6 @@ Index on `key_hash`.
     "name": str,
     "key_hash": str,             # SHA-256(key_without_sk_prefix) as hex
     "key_prefix": str,           # first 12 chars of full key, for display
-    "organization_id": str,
-    "created_by": str,           # user_id
     "created_at": datetime,
     "last_used_at": datetime | None,
     "is_active": bool
@@ -72,20 +43,19 @@ Index on `key_hash`.
 
 API key format: `sk-<secrets.token_urlsafe(36)>` (total ~50 chars). Full key shown once at creation, never stored.
 
-## Extraction
+## Sift
 
-MongoDB collection: `extractions`
+MongoDB collection: `sifts`
 
 ```python
 {
     "_id": ObjectId,
-    "organization_id": str,      # tenant isolation
     "name": str,
     "description": str,
-    "extraction_instructions": str,
-    "extraction_schema": str | None,
+    "instructions": str,
+    "schema": str | None,        # optional JSON schema hint
     "status": "active" | "indexing" | "paused" | "error",
-    "extraction_error": str | None,
+    "error": str | None,
     "processed_documents": int,
     "total_documents": int,
     "created_at": datetime,
@@ -93,17 +63,16 @@ MongoDB collection: `extractions`
 }
 ```
 
-## ExtractionResult
+## SiftResult
 
-MongoDB collection: `extraction_results`
+MongoDB collection: `sift_results`
 
-Compound index on `(extraction_id, document_id)`. Index on `organization_id`.
+Compound index on `(sift_id, document_id)`.
 
 ```python
 {
     "_id": ObjectId,
-    "organization_id": str,
-    "extraction_id": str,
+    "sift_id": str,
     "document_id": str,
     "document_type": str,
     "confidence": float,
@@ -119,10 +88,9 @@ MongoDB collection: `aggregations`
 ```python
 {
     "_id": ObjectId,
-    "organization_id": str,
     "name": str,
     "description": str,
-    "extraction_id": str,
+    "sift_id": str,
     "aggregation_query": str,
     "pipeline": list | None,         # Generated MongoDB pipeline (JSON array)
     "aggregation_error": str | None,
@@ -140,7 +108,6 @@ MongoDB collection: `folders`
 ```python
 {
     "_id": ObjectId,
-    "organization_id": str,
     "name": str,
     "description": str,
     "document_count": int,
@@ -155,15 +122,13 @@ MongoDB collection: `documents`
 ```python
 {
     "_id": ObjectId,
-    "organization_id": str,
     "folder_id": str,
     "filename": str,             # unique within folder
     "original_filename": str,
     "content_type": str,
     "size_bytes": int,
-    "uploaded_by": str,          # user_id
     "uploaded_at": datetime,
-    "storage_path": str          # filesystem path or GridFS id
+    "storage_path": str          # filesystem path, S3 key, or GCS blob path
 }
 ```
 
@@ -171,35 +136,55 @@ MongoDB collection: `documents`
 
 MongoDB collection: `folder_extractors`
 
-Compound index on `(folder_id, extraction_id)`.
+Compound index on `(folder_id, sift_id)`.
 
 ```python
 {
     "_id": ObjectId,
-    "organization_id": str,
     "folder_id": str,
-    "extraction_id": str,
+    "sift_id": str,
     "created_at": datetime
 }
 ```
 
-## DocumentExtractionStatus
+## DocumentSiftStatus
 
-MongoDB collection: `document_extraction_statuses`
+MongoDB collection: `document_sift_statuses`
 
-Compound index on `(document_id, extraction_id)`. Index on `organization_id`.
+Compound index on `(document_id, sift_id)`.
 
 ```python
 {
     "_id": ObjectId,
-    "organization_id": str,
     "document_id": str,
-    "extraction_id": str,
+    "sift_id": str,
     "status": "pending" | "processing" | "done" | "error",
     "started_at": datetime | None,
     "completed_at": datetime | None,
     "error_message": str | None,
-    "extraction_record_id": str | None   # ExtractionResult._id when done
+    "sift_record_id": str | None   # SiftResult._id when done
+}
+```
+
+## ProcessingTask
+
+MongoDB collection: `processing_queue`
+
+Compound index on `(status, created_at)`. Index on `document_id`.
+
+```python
+{
+    "_id": ObjectId,
+    "document_id": str,
+    "sift_id": str,
+    "storage_path": str,
+    "status": "pending" | "processing" | "done" | "error",
+    "attempts": int,             # incremented on each claim
+    "max_attempts": int,         # default 3
+    "error_message": str | None,
+    "created_at": datetime,
+    "claimed_at": datetime | None,
+    "completed_at": datetime | None
 }
 ```
 
@@ -207,12 +192,9 @@ Compound index on `(document_id, extraction_id)`. Index on `organization_id`.
 
 MongoDB collection: `webhooks`
 
-Index on `organization_id`.
-
 ```python
 {
     "_id": ObjectId,
-    "organization_id": str,
     "events": list[str],           # wildcard patterns, e.g. ["sift.*"]
     "url": str,                    # delivery target
     "sift_id": str | None,         # optional filter: only fire for this sift

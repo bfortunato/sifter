@@ -33,3 +33,8 @@ class NoopLimiter:
 
     async def record_processed(self, org_id: str, doc_count: int) -> None:
         pass
+
+
+def get_usage_limiter() -> NoopLimiter:
+    """FastAPI dependency. Cloud repo overrides via app.dependency_overrides."""
+    return NoopLimiter()

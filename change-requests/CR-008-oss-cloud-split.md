@@ -1,6 +1,6 @@
 ---
 title: "OSS/Cloud split: extension interfaces + sifter-cloud repo structure"
-status: pending
+status: applied
 author: "Bruno Fortunato"
 created-at: "2026-04-13T00:00:00.000Z"
 ---

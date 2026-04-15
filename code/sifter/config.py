@@ -27,8 +27,20 @@ class SifterConfig(BaseSettings):
     # File storage
     upload_dir: str = "./uploads"
     storage_path: str = "./uploads"
-    storage_backend: str = "filesystem"
+    storage_backend: str = "filesystem"   # "filesystem" | "s3" | "gcs"
     max_file_size_mb: int = 50
+
+    # S3 storage (used when storage_backend="s3")
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_endpoint_url: str = ""             # empty = use AWS default; set for MinIO/R2
+
+    # GCS storage (used when storage_backend="gcs")
+    gcs_bucket: str = ""
+    gcs_project: str = ""
+    gcs_credentials_file: str = ""        # empty = use Application Default Credentials
 
     # Background workers
     max_workers: int = 4

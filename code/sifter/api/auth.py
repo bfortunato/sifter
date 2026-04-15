@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 
 from sifter.auth import (
@@ -20,6 +20,7 @@ from sifter.auth import (
     verify_password,
 )
 from sifter.db import get_db
+from sifter.limiter import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -27,13 +28,13 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 # ---- Schemas ----
 
 class RegisterRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
     full_name: str = ""
 
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
@@ -62,7 +63,8 @@ def _user_out(doc: dict) -> UserOut:
 # ---- Endpoints ----
 
 @router.post("/register", response_model=AuthResponse)
-async def register(req: RegisterRequest, db=Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, req: RegisterRequest, db=Depends(get_db)):
     existing = await db["users"].find_one({"email": req.email.lower()})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -81,7 +83,8 @@ async def register(req: RegisterRequest, db=Depends(get_db)):
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(req: LoginRequest, db=Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, req: LoginRequest, db=Depends(get_db)):
     doc = await db["users"].find_one({"email": req.email.lower()})
     if not doc or not verify_password(req.password, doc["hashed_password"]):
         raise HTTPException(

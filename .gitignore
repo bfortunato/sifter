@@ -4,3 +4,4 @@ code/examples/invoices/
 code/examples/contracts/
 code/examples/receipts/
 code/examples/docs/
+code/examples/*.csv

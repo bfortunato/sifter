@@ -22,4 +22,4 @@ COPY frontend/dist/ ./frontend/dist/ 2>/dev/null || true
 
 EXPOSE 8000
 
-CMD ["uv", "run", "python", "-m", "sifter.main"]
+CMD ["uv", "run", "python", "-m", "sifter.server"]

@@ -16,7 +16,7 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from sifter import Sifter
+from sifter_sdk import Sifter
 
 # ── Minimal webhook receiver ──────────────────────────────────────────────────
 

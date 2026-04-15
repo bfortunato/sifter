@@ -5,7 +5,7 @@ The SDK always connects to a running Sifter server (local or remote).
 Start the server with ./run.sh before using the SDK.
 
 Usage:
-    from sifter import Sifter
+    from sifter_sdk import Sifter
 
     s = Sifter(api_key="sk-...")
 

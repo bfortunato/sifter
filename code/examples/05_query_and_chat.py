@@ -9,7 +9,7 @@ Requirements:
     # A sift with extracted records already exists (run 02_invoices.py first)
 """
 import httpx
-from sifter import Sifter
+from sifter_sdk import Sifter
 
 s = Sifter(api_key="sk-dev")
 

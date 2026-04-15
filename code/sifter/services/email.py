@@ -25,3 +25,8 @@ class NoopEmailSender:
 
     async def send_usage_alert(self, to: str, org_name: str, usage_pct: float) -> None:
         pass
+
+
+def get_email_sender() -> NoopEmailSender:
+    """FastAPI dependency. Cloud repo overrides via app.dependency_overrides."""
+    return NoopEmailSender()

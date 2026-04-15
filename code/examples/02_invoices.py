@@ -34,7 +34,7 @@ sift = s.create_sift(
 print(f"Created sift: {sift.id}")
 
 # Upload all PDFs in the invoices folder
-sift.upload("./invoices/")
+sift.upload("./examples/invoices/")
 
 print("Processing...")
 sift.wait()
@@ -59,5 +59,5 @@ for r in records:
 print(f"\nTotal across all invoices: {total_sum:.2f}")
 
 # Export to CSV
-sift.export_csv("invoices_2024.csv")
-print("\nExported to invoices_2024.csv")
+sift.export_csv("./examples/invoices_2024.csv")
+print("\nExported to ./examples/invoices_2024.csv")

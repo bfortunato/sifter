@@ -42,7 +42,7 @@ def on_document_done(doc_id: str, record: dict):
 sift.on("sift.document.processed", on_document_done)
 sift.on("sift.completed", lambda sift_id: print(f"\nAll done — {len(processed)} contracts processed."))
 
-sift.upload("./contracts/")
+sift.upload("./examples/contracts/")
 sift.wait()
 
 # Flag contracts expiring in the next 90 days

@@ -13,7 +13,7 @@ from sifter import Sifter
 s = Sifter(api_key="sk-dev")
 
 # One-liner: creates a temporary sift, uploads, waits, returns records, cleans up.
-records = s.sift("./docs/", "invoice number, client name, date, total amount, currency")
+records = s.sift("./examples/docs/", "invoice number, client name, date, total amount, currency")
 
 for r in records:
     print(r)

@@ -48,7 +48,7 @@ folder.on(
     "folder.document.uploaded",
     lambda doc: print(f"  Uploaded: {doc.get('filename', doc.get('id'))}"),
 )
-folder.upload("./receipts/")
+folder.upload("./examples/receipts/")
 
 print("\nWaiting for accounting extraction...")
 sift_accounting.wait()

@@ -7,7 +7,8 @@ from bson import ObjectId
 class SiftResult(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     sift_id: str
-    document_id: str
+    document_id: str          # UUID — stable identifier for this result
+    filename: str = ""        # original filename as uploaded
     document_type: str = "unknown"
     confidence: float = 0.0
     extracted_data: dict[str, Any] = {}

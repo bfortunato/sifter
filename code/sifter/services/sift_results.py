@@ -21,10 +21,18 @@ class SiftResultsService:
         self.col = db[COLLECTION]
 
     async def ensure_indexes(self):
+        # Drop stale index from before extraction_id → sift_id rename
+        for stale in ("extraction_document_unique", "sift_document_unique"):
+            try:
+                await self.col.drop_index(stale)
+            except Exception:
+                pass  # index doesn't exist — fine
+
+        # Idempotency: one result per (sift, filename)
         await self.col.create_index(
-            [("sift_id", 1), ("document_id", 1)],
+            [("sift_id", 1), ("filename", 1)],
             unique=True,
-            name="sift_document_unique",
+            name="sift_filename_unique",
         )
         await self.col.create_index("sift_id", name="sift_id_idx")
 
@@ -32,6 +40,7 @@ class SiftResultsService:
         self,
         sift_id: str,
         document_id: str,
+        filename: str,
         document_type: str,
         confidence: float,
         extracted_data: dict[str, Any],
@@ -39,18 +48,20 @@ class SiftResultsService:
         result = SiftResult(
             sift_id=sift_id,
             document_id=document_id,
+            filename=filename,
             document_type=document_type,
             confidence=confidence,
             extracted_data=extracted_data,
             created_at=datetime.now(timezone.utc),
         )
         doc = result.to_mongo()
+        # Upsert by (sift_id, filename) for idempotency — same file reprocessed overwrites
         await self.col.replace_one(
-            {"sift_id": sift_id, "document_id": document_id},
+            {"sift_id": sift_id, "filename": filename},
             doc,
             upsert=True,
         )
-        logger.info("result_inserted", sift_id=sift_id, document_id=document_id)
+        logger.info("result_inserted", sift_id=sift_id, document_id=document_id, filename=filename)
         return result
 
     async def get_results(
@@ -123,7 +134,7 @@ class SiftResultsService:
         output = io.StringIO()
         writer = csv.DictWriter(
             output,
-            fieldnames=["document_id", "document_type", "confidence"] + all_fields,
+            fieldnames=["document_id", "filename", "document_type", "confidence"] + all_fields,
             extrasaction="ignore",
         )
         writer.writeheader()
@@ -131,6 +142,7 @@ class SiftResultsService:
         for result in results:
             row = {
                 "document_id": result.document_id,
+                "filename": result.filename,
                 "document_type": result.document_type,
                 "confidence": result.confidence,
                 **result.extracted_data,

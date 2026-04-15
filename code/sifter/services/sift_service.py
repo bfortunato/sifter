@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from uuid import uuid4
 
 import structlog
 from bson import ObjectId
@@ -122,10 +123,11 @@ class SiftService:
                         schema=schema,
                     )
 
-                document_id = Path(file_path).name
+                filename = Path(file_path).name
                 await self.results_service.insert_result(
                     sift_id=sift_id,
-                    document_id=document_id,
+                    document_id=str(uuid4()),
+                    filename=filename,
                     document_type=result.document_type,
                     confidence=result.confidence,
                     extracted_data=result.extracted_data,
@@ -176,7 +178,7 @@ class SiftService:
         )
 
     async def process_single_document(
-        self, sift_id: str, file_path: str
+        self, sift_id: str, file_path: str, document_id: str | None = None
     ) -> SiftResult:
         sift = await self.get(sift_id)
         if not sift:
@@ -190,10 +192,11 @@ class SiftService:
                 schema=sift.schema,
             )
 
-        document_id = Path(file_path).name
+        filename = Path(file_path).name
         stored = await self.results_service.insert_result(
             sift_id=sift_id,
-            document_id=document_id,
+            document_id=document_id or str(uuid4()),
+            filename=filename,
             document_type=result.document_type,
             confidence=result.confidence,
             extracted_data=result.extracted_data,

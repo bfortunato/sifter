@@ -199,7 +199,9 @@ class SiftHandle:
                 headers=self._client._auth_headers(),
             )
             r.raise_for_status()
-            return r.json()
+            data = r.json()
+            # API returns a pagination envelope: {"items": [...], "total": N, ...}
+            return data["items"] if isinstance(data, dict) else data
 
     def query(self, nl_query: str) -> list[dict[str, Any]]:
         """Run a natural language query against this sift."""

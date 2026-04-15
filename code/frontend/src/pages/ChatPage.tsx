@@ -40,7 +40,7 @@ export function ChatPage() {
       <div className="flex-1 overflow-hidden">
         <Card className="h-full rounded-none border-0">
           <CardContent className="p-0 h-full">
-            <ChatInterface siftId={selectedSiftId} />
+            <ChatInterface siftId={selectedSiftId} height="100%" />
           </CardContent>
         </Card>
       </div>

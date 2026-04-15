@@ -8,6 +8,8 @@ import type { ChatMessage } from "@/api/types";
 
 interface ChatInterfaceProps {
   siftId?: string;
+  /** CSS height for the chat area. Defaults to "500px". Use "100%" to fill parent. */
+  height?: string;
 }
 
 function DataTable({ data }: { data: Record<string, unknown>[] }) {
@@ -89,7 +91,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-export function ChatInterface({ siftId }: ChatInterfaceProps) {
+export function ChatInterface({ siftId, height = "500px" }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const { messages, isLoading, sendMessage } = useChat(siftId);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -105,7 +107,7 @@ export function ChatInterface({ siftId }: ChatInterfaceProps) {
   };
 
   return (
-    <div className="flex flex-col h-[500px]">
+    <div className="flex flex-col" style={{ height }}>
       <ScrollArea className="flex-1 p-4">
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground py-12 text-sm">

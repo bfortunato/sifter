@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Key, Plus, Trash2, Users } from "lucide-react";
+import { Copy, Key, Plus, Trash2, Webhook as WebhookIcon } from "lucide-react";
 import { createApiKey, fetchApiKeys, revokeApiKey } from "../api/keys";
-import { addMember, fetchMembers } from "../api/orgs";
+import { createWebhook, deleteWebhook, fetchWebhooks, Webhook } from "../api/webhooks";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import {
   Dialog,
@@ -26,9 +27,14 @@ export default function SettingsPage() {
 
   return (
     <div className="container mx-auto py-8 max-w-3xl space-y-8">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <div>
+        <h1 className="text-2xl font-bold">Settings</h1>
+        {user?.email && (
+          <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
+        )}
+      </div>
       <ApiKeysSection />
-      <OrgSection />
+      <WebhooksSection />
     </div>
   );
 }
@@ -110,7 +116,6 @@ function ApiKeysSection() {
           <Plus className="h-4 w-4" /> Create Key
         </Button>
 
-        {/* Create dialog */}
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogContent>
             <DialogHeader>
@@ -123,6 +128,9 @@ function ApiKeysSection() {
                   placeholder="e.g. Production SDK"
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newKeyName.trim()) createMutation.mutate(newKeyName);
+                  }}
                 />
               </div>
               <Button
@@ -134,14 +142,13 @@ function ApiKeysSection() {
               </Button>
               {createMutation.isError && (
                 <p className="text-sm text-destructive">
-                  {createMutation.error?.message}
+                  {(createMutation.error as Error).message}
                 </p>
               )}
             </div>
           </DialogContent>
         </Dialog>
 
-        {/* Show created key once */}
         <Dialog open={!!createdKey} onOpenChange={() => setCreatedKey(null)}>
           <DialogContent>
             <DialogHeader>
@@ -174,37 +181,153 @@ function ApiKeysSection() {
   );
 }
 
-function OrgSection() {
-  const { user } = useAuthContext();
-  const queryClient = useQueryClient();
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteError, setInviteError] = useState("");
+const AVAILABLE_EVENTS = [
+  { value: "sift.document.processed", label: "Document processed" },
+  { value: "sift.error", label: "Processing error" },
+  { value: "sift.*", label: "All sift events" },
+];
 
-  // We'd need org_id from the token — for now use a placeholder approach
-  // In a real app, org_id would come from auth context
-  const { data: members = [] } = useQuery({
-    queryKey: ["org-members"],
-    queryFn: () =>
-      // We don't have org_id directly here; this would need it from context
-      // For now just return empty — a full implementation would store org_id in AuthContext
-      Promise.resolve([]),
-    enabled: false,
+function WebhooksSection() {
+  const queryClient = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [newUrl, setNewUrl] = useState("");
+  const [selectedEvents, setSelectedEvents] = useState<string[]>(["sift.document.processed"]);
+
+  const { data: webhooks = [], isLoading, error } = useQuery({
+    queryKey: ["webhooks"],
+    queryFn: fetchWebhooks,
   });
+
+  const createMutation = useMutation({
+    mutationFn: () => createWebhook({ url: newUrl, events: selectedEvents }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webhooks"] });
+      setShowCreate(false);
+      setNewUrl("");
+      setSelectedEvents(["sift.document.processed"]);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteWebhook(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["webhooks"] }),
+  });
+
+  const toggleEvent = (event: string) => {
+    setSelectedEvents((prev) =>
+      prev.includes(event) ? prev.filter((e) => e !== event) : [...prev, event]
+    );
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Users className="h-4 w-4" /> Organization
+          <WebhookIcon className="h-4 w-4" /> Webhooks
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Logged in as <span className="font-medium">{user?.email}</span>
+          Receive HTTP POST notifications when documents are processed.
         </p>
-        <p className="text-sm text-muted-foreground">
-          Organization management (invite members, create organizations) coming soon.
-        </p>
+
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{(error as Error).message}</AlertDescription>
+          </Alert>
+        ) : webhooks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No webhooks configured.</p>
+        ) : (
+          <div className="space-y-2">
+            {webhooks.map((hook: Webhook) => (
+              <div
+                key={hook.id}
+                className="flex items-start justify-between gap-2 p-3 border rounded-md"
+              >
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-mono truncate">{hook.url}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {hook.events.map((ev) => (
+                      <Badge key={ev} variant="secondary" className="text-xs">
+                        {ev}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Created {formatDate(hook.created_at)}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteMutation.mutate(hook.id)}
+                  disabled={deleteMutation.isPending}
+                  className="shrink-0"
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-1"
+        >
+          <Plus className="h-4 w-4" /> Add Webhook
+        </Button>
+
+        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Webhook</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Endpoint URL</Label>
+                <Input
+                  placeholder="https://your-server.com/webhook"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Events</Label>
+                <div className="space-y-2">
+                  {AVAILABLE_EVENTS.map((ev) => (
+                    <label key={ev.value} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedEvents.includes(ev.value)}
+                        onChange={() => toggleEvent(ev.value)}
+                        className="rounded border-input"
+                      />
+                      <span className="text-sm">{ev.label}</span>
+                      <code className="text-xs text-muted-foreground">{ev.value}</code>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <Button
+                onClick={() => createMutation.mutate()}
+                disabled={!newUrl.trim() || selectedEvents.length === 0 || createMutation.isPending}
+                className="w-full"
+              >
+                {createMutation.isPending ? "Creating..." : "Add Webhook"}
+              </Button>
+              {createMutation.isError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{(createMutation.error as Error).message}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

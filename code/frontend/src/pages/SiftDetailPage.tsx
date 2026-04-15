@@ -402,8 +402,11 @@ export function SiftDetailPage() {
           onClick={() => fileInputRef.current?.click()}
           disabled={uploadMutation.isPending}
         >
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Documents
+          {uploadMutation.isPending ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading…</>
+          ) : (
+            <><Upload className="h-4 w-4 mr-2" />Upload Documents</>
+          )}
         </Button>
         <Button
           variant="outline"
@@ -426,6 +429,18 @@ export function SiftDetailPage() {
           Delete
         </Button>
       </div>
+
+      {/* Mutation errors */}
+      {uploadMutation.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>Upload failed: {(uploadMutation.error as Error).message}</AlertDescription>
+        </Alert>
+      )}
+      {reindexMutation.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>Reindex failed: {(reindexMutation.error as Error).message}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>

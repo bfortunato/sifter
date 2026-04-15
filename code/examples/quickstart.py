@@ -16,7 +16,7 @@ Prerequisites:
 
 import os
 from pathlib import Path
-from sifter_sdk import Sifter
+from sifter import Sifter
 
 # Initialize Sifter in direct mode (no server needed)
 s = Sifter(

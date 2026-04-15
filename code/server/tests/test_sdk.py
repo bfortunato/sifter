@@ -7,8 +7,8 @@ import pytest
 import respx
 import httpx
 
-from sifter.services.webhook_service import _matches_pattern
-from sifter.sdk.client import FolderHandle, SiftHandle, Sifter
+from sifter_server.services.webhook_service import _matches_pattern
+from sifter import FolderHandle, SiftHandle, Sifter
 
 
 # ───────────────────────────────────────────

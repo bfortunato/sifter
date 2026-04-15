@@ -12,15 +12,15 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 
-from sifter.auth import (
+from sifter_server.auth import (
     Principal,
     create_access_token,
     get_current_principal,
     hash_password,
     verify_password,
 )
-from sifter.db import get_db
-from sifter.limiter import limiter
+from sifter_server.db import get_db
+from sifter_server.limiter import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 

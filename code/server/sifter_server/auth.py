@@ -21,8 +21,8 @@ from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBea
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from sifter.config import config
-from sifter.db import get_db
+from sifter_server.config import config
+from sifter_server.db import get_db
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 bearer_scheme = HTTPBearer(auto_error=False)

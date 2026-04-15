@@ -8,7 +8,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from pathlib import Path
 
-from sifter.services.sift_agent import extract, _strip_markdown_fences, ExtractionAgentResult
+from sifter_server.services.sift_agent import extract, _strip_markdown_fences, ExtractionAgentResult
 
 
 def test_strip_markdown_fences_plain():

@@ -18,8 +18,8 @@ os.environ.setdefault("SIFTER_LLM_API_KEY", "test-key")
 # All tests in this module share the session event loop
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-from sifter.server import app
-from sifter.auth import Principal, get_current_principal
+from sifter_server.server import app
+from sifter_server.auth import Principal, get_current_principal
 
 async def _mock_principal() -> Principal:
     return Principal(key_id="bootstrap")
@@ -38,7 +38,7 @@ async def client():
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def clean_db(client):
     """Wipe test collections before each test."""
-    from sifter.db import get_db
+    from sifter_server.db import get_db
     db = get_db()
     for col in ("sifts", "sift_results", "aggregations",
                 "folders", "documents", "folder_extractors",
@@ -153,8 +153,8 @@ async def test_get_records_empty(client):
 
 
 async def _insert_records(extraction_id, records):
-    from sifter.db import get_db
-    from sifter.services.sift_results import SiftResultsService
+    from sifter_server.db import get_db
+    from sifter_server.services.sift_results import SiftResultsService
     svc = SiftResultsService(get_db())
     await svc.ensure_indexes()
     for doc_id, doc_type, conf, data in records:

@@ -8,7 +8,7 @@ Requirements:
     pip install sifter-ai
     # Sifter server running on localhost:8000 (./run.sh)
 """
-from sifter_sdk import Sifter
+from sifter import Sifter
 
 s = Sifter(api_key="sk-dev")
 

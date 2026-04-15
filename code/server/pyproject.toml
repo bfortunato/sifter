@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sifter-ai"
+name = "sifter-server"
 version = "0.1.0"
 description = "AI-powered document extraction engine — self-hostable server"
 readme = "README.md"
@@ -49,14 +49,14 @@ dev = [
 ]
 
 [project.scripts]
-sifter = "sifter.server:run"
+sifter-server = "sifter_server.server:run"
 
 [project.urls]
 Homepage = "https://github.com/sifter-ai/sifter"
 Repository = "https://github.com/sifter-ai/sifter"
 
 [tool.hatch.build.targets.wheel]
-packages = ["sifter"]
+packages = ["sifter_server"]
 
 [tool.uv]
 package = true

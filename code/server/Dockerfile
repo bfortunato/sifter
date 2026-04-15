@@ -15,11 +15,11 @@ COPY pyproject.toml uv.lock* ./
 RUN uv sync --no-dev --frozen || uv sync --no-dev
 
 # Copy source
-COPY sifter/ ./sifter/
+COPY sifter_server/ ./sifter_server/
 
 # Copy frontend build if exists
 COPY frontend/dist/ ./frontend/dist/ 2>/dev/null || true
 
 EXPOSE 8000
 
-CMD ["uv", "run", "python", "-m", "sifter.server"]
+CMD ["uv", "run", "python", "-m", "sifter_server.server"]

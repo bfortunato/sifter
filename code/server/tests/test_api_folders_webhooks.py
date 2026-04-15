@@ -15,8 +15,8 @@ os.environ.setdefault("SIFTER_LLM_API_KEY", "test-key")
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-from sifter.server import app
-from sifter.auth import Principal, get_current_principal
+from sifter_server.server import app
+from sifter_server.auth import Principal, get_current_principal
 
 # Same org as test_api.py — single shared principal override avoids conflicts
 async def _mock_principal() -> Principal:
@@ -34,7 +34,7 @@ async def client():
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def clean_db(client):
-    from sifter.db import get_db
+    from sifter_server.db import get_db
     db = get_db()
     for col in ("sifts", "sift_results", "aggregations",
                 "folders", "documents", "folder_extractors",

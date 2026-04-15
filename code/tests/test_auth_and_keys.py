@@ -18,7 +18,7 @@ os.environ.setdefault("SIFTER_LLM_API_KEY", "test-key")
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 # Import app after env vars are set
-from sifter.main import app
+from sifter.server import app
 from sifter.config import config
 
 

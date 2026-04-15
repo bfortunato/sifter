@@ -58,7 +58,7 @@ dev = [
 ]
 
 [project.scripts]
-sifter = "sifter.main:run"
+sifter = "sifter.server:run"
 
 [project.urls]
 Homepage = "https://github.com/sifter-ai/sifter"

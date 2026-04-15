@@ -18,7 +18,7 @@ os.environ.setdefault("SIFTER_LLM_API_KEY", "test-key")
 # All tests in this module share the session event loop
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-from sifter.main import app
+from sifter.server import app
 from sifter.auth import Principal, get_current_principal
 
 async def _mock_principal() -> Principal:

@@ -115,6 +115,11 @@ async def delete_sift(
     deleted = await svc.delete(sift_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Sift not found")
+    # Clean up stale folder-extractor links so queued tasks don't fail with
+    # "Sift not found" for documents already associated with this sift.
+    await db["folder_extractors"].delete_many({"sift_id": sift_id})
+    await db["document_sift_statuses"].delete_many({"sift_id": sift_id})
+    await db["processing_queue"].delete_many({"sift_id": sift_id, "status": {"$in": ["pending", "processing"]}})
     return {"deleted": True}
 
 

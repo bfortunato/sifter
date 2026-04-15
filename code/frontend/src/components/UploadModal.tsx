@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { UploadCloud, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, UploadCloud, X } from "lucide-react";
 import { uploadDocument } from "@/api/folders";
 import { Folder } from "@/api/types";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,14 @@ interface UploadModalProps {
   defaultFolderId?: string;
 }
 
+type FileStatus = "idle" | "uploading" | "done" | "error";
+
+interface FileEntry {
+  file: File;
+  status: FileStatus;
+  error?: string;
+}
+
 export function UploadModal({
   open,
   onOpenChange,
@@ -32,58 +40,89 @@ export function UploadModal({
 }: UploadModalProps) {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [entries, setEntries] = useState<FileEntry[]>([]);
   const [targetFolderId, setTargetFolderId] = useState(defaultFolderId ?? folders[0]?.id ?? "");
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
+  // Sync target folder when navigating between folders
+  useEffect(() => {
+    if (defaultFolderId) setTargetFolderId(defaultFolderId);
+  }, [defaultFolderId]);
+
+  // Reset when closed
+  useEffect(() => {
+    if (!open) {
+      setEntries([]);
+      setDragOver(false);
+    }
+  }, [open]);
+
   const targetFolder = folders.find((f) => f.id === targetFolderId);
 
-  const handleFiles = (files: FileList | null) => {
+  const addFiles = (files: FileList | null) => {
     if (!files) return;
-    setSelectedFiles((prev) => [
-      ...prev,
-      ...Array.from(files).filter(
-        (f) => !prev.some((p) => p.name === f.name && p.size === f.size)
-      ),
-    ]);
+    setEntries((prev) => {
+      const existing = new Set(prev.map((e) => `${e.file.name}:${e.file.size}`));
+      const newEntries: FileEntry[] = Array.from(files)
+        .filter((f) => !existing.has(`${f.name}:${f.size}`))
+        .map((f) => ({ file: f, status: "idle" }));
+      return [...prev, ...newEntries];
+    });
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  const removeEntry = (index: number) => {
+    setEntries((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    handleFiles(e.dataTransfer.files);
+    addFiles(e.dataTransfer.files);
   };
 
   const handleUpload = async () => {
-    if (!targetFolderId || selectedFiles.length === 0) return;
+    if (!targetFolderId || entries.length === 0) return;
     setUploading(true);
-    try {
-      for (const file of selectedFiles) {
-        await uploadDocument(targetFolderId, file);
+
+    const updated = [...entries];
+    let anySuccess = false;
+
+    for (let i = 0; i < updated.length; i++) {
+      if (updated[i].status === "done") continue;
+      updated[i] = { ...updated[i], status: "uploading" };
+      setEntries([...updated]);
+
+      try {
+        await uploadDocument(targetFolderId, updated[i].file);
+        updated[i] = { ...updated[i], status: "done" };
+        anySuccess = true;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        updated[i] = { ...updated[i], status: "error", error: msg };
       }
+      setEntries([...updated]);
+    }
+
+    if (anySuccess) {
       queryClient.invalidateQueries({ queryKey: ["folder-documents", targetFolderId] });
       queryClient.invalidateQueries({ queryKey: ["folder", targetFolderId] });
       queryClient.invalidateQueries({ queryKey: ["folders"] });
-      setSelectedFiles([]);
-      onOpenChange(false);
-    } catch (err) {
-      console.error("Upload failed", err);
-    } finally {
-      setUploading(false);
+    }
+
+    setUploading(false);
+
+    const allDone = updated.every((e) => e.status === "done");
+    if (allDone) {
+      setTimeout(() => onOpenChange(false), 600);
     }
   };
 
   const handleClose = () => {
-    if (!uploading) {
-      setSelectedFiles([]);
-      onOpenChange(false);
-    }
+    if (!uploading) onOpenChange(false);
   };
+
+  const hasIdle = entries.some((e) => e.status === "idle" || e.status === "error");
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -95,12 +134,13 @@ export function UploadModal({
         <div className="space-y-4">
           {/* Folder selector */}
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Upload to:</span>
+            <span className="text-muted-foreground shrink-0">Upload to:</span>
             {folders.length > 1 ? (
               <select
                 className="flex h-8 rounded-md border border-input bg-background px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 value={targetFolderId}
                 onChange={(e) => setTargetFolderId(e.target.value)}
+                disabled={uploading}
               >
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>
@@ -126,52 +166,80 @@ export function UploadModal({
             onClick={() => fileInputRef.current?.click()}
           >
             <UploadCloud className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
-            <p className="text-sm font-medium">Drag & drop PDF, PNG, JPG here</p>
-            <p className="text-xs text-muted-foreground mt-1">or click to select files</p>
+            <p className="text-sm font-medium">Drag & drop files here</p>
+            <p className="text-xs text-muted-foreground mt-1">PDF, PNG, JPG, TIFF — or click to select</p>
             <input
               ref={fileInputRef}
               type="file"
               multiple
               accept=".pdf,.png,.jpg,.jpeg,.tiff,.webp"
               className="hidden"
-              onChange={(e) => handleFiles(e.target.files)}
+              onChange={(e) => addFiles(e.target.files)}
             />
           </div>
 
-          <p className="text-xs text-muted-foreground">Max file size: 50 MB per file</p>
+          <p className="text-xs text-muted-foreground">Max {50} MB per file</p>
 
-          {/* Selected files */}
-          {selectedFiles.length > 0 && (
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {selectedFiles.map((file, i) => (
+          {/* File list */}
+          {entries.length > 0 && (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {entries.map((entry, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between text-sm p-2 border rounded-md"
+                  className={`flex items-center gap-2 text-sm p-2 border rounded-md ${
+                    entry.status === "error"
+                      ? "border-destructive/50 bg-destructive/5"
+                      : entry.status === "done"
+                      ? "border-green-500/30 bg-green-50/50"
+                      : ""
+                  }`}
                 >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
+                  <div className="shrink-0 w-4">
+                    {entry.status === "uploading" && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                    {entry.status === "done" && (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    )}
+                    {entry.status === "error" && (
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                    )}
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                    className="ml-2 shrink-0 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium leading-tight">{entry.file.name}</p>
+                    {entry.status === "error" && entry.error ? (
+                      <p className="text-xs text-destructive truncate">{entry.error}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">{formatBytes(entry.file.size)}</p>
+                    )}
+                  </div>
+                  {(entry.status === "idle" || entry.status === "error") && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeEntry(i); }}
+                      className="ml-1 shrink-0 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           )}
 
-          {selectedFiles.length > 0 && (
+          {entries.length > 0 && hasIdle && (
             <Button
               onClick={handleUpload}
               disabled={uploading || !targetFolderId}
               className="w-full"
             >
-              {uploading
-                ? "Uploading..."
-                : `Upload ${selectedFiles.length} file${selectedFiles.length !== 1 ? "s" : ""}`}
+              {uploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading…
+                </>
+              ) : (
+                `Upload ${entries.filter((e) => e.status !== "done").length} file${entries.filter((e) => e.status !== "done").length !== 1 ? "s" : ""}`
+              )}
             </Button>
           )}
         </div>

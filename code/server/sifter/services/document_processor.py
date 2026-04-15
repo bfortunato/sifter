@@ -129,7 +129,9 @@ async def worker(db: AsyncIOMotorDatabase) -> None:
             error_msg = str(e)
             logger.error("document_processing_failed", document_id=document_id, sift_id=sift_id, error=error_msg, attempt=attempts)
 
-            if attempts < max_attempts:
+            # Non-retryable: sift was deleted between enqueue and processing.
+            sift_not_found = f"Sift {sift_id} not found" in error_msg
+            if not sift_not_found and attempts < max_attempts:
                 await db[COLLECTION].update_one(
                     {"_id": task_doc["_id"]},
                     {"$set": {"status": "pending", "claimed_at": None, "error_message": error_msg}},

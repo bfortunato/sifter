@@ -1,6 +1,6 @@
 ---
 title: Frontend Architecture
-status: new
+status: synced
 ---
 
 # Frontend Architecture

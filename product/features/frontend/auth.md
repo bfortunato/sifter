@@ -1,6 +1,6 @@
 ---
 title: "Frontend: Authentication"
-status: new
+status: synced
 ---
 
 # Authentication — Frontend

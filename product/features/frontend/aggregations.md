@@ -1,6 +1,6 @@
 ---
 title: "Frontend: Named Aggregations"
-status: new
+status: synced
 ---
 
 # Named Aggregations — Frontend

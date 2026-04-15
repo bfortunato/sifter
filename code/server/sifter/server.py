@@ -137,8 +137,8 @@ async def health():
     )
 
 
-# Serve frontend static files if built
-_frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+# Serve frontend static files if built (code/frontend/dist relative to monorepo root)
+_frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
 if _frontend_dist.exists():
     app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
 

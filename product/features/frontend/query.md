@@ -1,6 +1,6 @@
 ---
 title: "Frontend: Natural Language Query"
-status: new
+status: synced
 ---
 
 # Natural Language Query — Frontend

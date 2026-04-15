@@ -1,6 +1,6 @@
 ---
 title: "Frontend: Folders & Document Management"
-status: new
+status: synced
 ---
 
 # Folders & Document Management — Frontend

@@ -1,6 +1,6 @@
 ---
 title: "Frontend: Conversational Chat"
-status: new
+status: synced
 ---
 
 # Conversational Chat — Frontend

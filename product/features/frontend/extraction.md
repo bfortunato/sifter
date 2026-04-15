@@ -1,6 +1,6 @@
 ---
 title: "Frontend: Document Extraction (Sifts)"
-status: new
+status: synced
 ---
 
 # Document Extraction — Frontend

@@ -20,14 +20,7 @@ status: synced
 - **Package**: `pyproject.toml` (publishable as `sifter-ai` on PyPI)
 - **SDK**: pure HTTP client (`httpx`) wrapping the REST API — no direct mode
 
-## Frontend
-
-- React 18 + Vite + TypeScript
-- shadcn/ui + Tailwind CSS
-- Lucide React (icons)
-- TanStack React Query (server state, polling)
-- React Router (routing)
-- Auth via JWT stored in `localStorage` under key `sifter_token`; injected via `apiFetch` utility
+> **No frontend in this repo.** The React UI lives in `sifter-cloud`. This repo is API + SDK only.
 
 ## Auth Middleware
 
@@ -125,9 +118,9 @@ Wildcard matching: `*` matches one segment, `**` matches any number of segments.
 
 - `POST /api/aggregations` returns immediately with `status=generating`
 - `asyncio.create_task(_generate_and_store_pipeline(...))` runs LLM call in background
-- Frontend polls `GET /api/aggregations/{id}` every 2 seconds until `status` is `ready` or `error`
+- Client polls `GET /api/aggregations/{id}` every 2 seconds until `status` is `ready` or `error`
 
-## OSS Extension Points (CR-008)
+## OSS Extension Points
 
 To support the cloud layer without forking, the OSS exposes two protocol interfaces with no-op defaults:
 
@@ -143,7 +136,7 @@ class UsageLimiter(Protocol):
         """Record usage for billing metering."""
 ```
 
-Default: `NoopLimiter` (always allows, records nothing).
+Default: `NoopLimiter`. Exposed as `get_usage_limiter()` FastAPI dependency.
 
 Call sites:
 - `check_upload()` — before file save in `POST /api/folders/{id}/documents` and `POST /api/sifts/{id}/upload`
@@ -159,11 +152,12 @@ class EmailSender(Protocol):
     async def send_usage_alert(self, to: str, org_name: str, usage_pct: float) -> None: ...
 ```
 
-Default: `NoopEmailSender` (silently drops all emails).
+Default: `NoopEmailSender`. Exposed as `get_email_sender()` FastAPI dependency.
 
-The cloud repo overrides via `app.dependency_overrides`:
+The cloud repo overrides both via `app.dependency_overrides`:
 ```python
-app.dependency_overrides[get_usage_limiter] = lambda: StripeLimiter(...)
+app.dependency_overrides[get_usage_limiter] = lambda: StripeLimiter()
+app.dependency_overrides[get_email_sender]  = lambda: ResendEmailSender()
 ```
 
 ## Project Layout
@@ -173,7 +167,7 @@ code/
 ├── pyproject.toml
 ├── Dockerfile
 ├── docker-compose.yml
-├── run.sh
+├── run.sh                    # starts MongoDB + API (no frontend)
 ├── sifter/
 │   ├── main.py
 │   ├── config.py
@@ -200,8 +194,8 @@ code/
 │   │   ├── pipeline_agent.py       # aggregation pipeline generator
 │   │   ├── qa_agent.py             # chat / Q&A agent
 │   │   ├── webhook_service.py
-│   │   ├── limits.py               # UsageLimiter protocol + NoopLimiter (CR-008)
-│   │   └── email.py                # EmailSender protocol + NoopEmailSender (CR-008)
+│   │   ├── limits.py               # UsageLimiter protocol + NoopLimiter + get_usage_limiter()
+│   │   └── email.py                # EmailSender protocol + NoopEmailSender + get_email_sender()
 │   ├── api/
 │   │   ├── auth.py
 │   │   ├── keys.py
@@ -218,16 +212,6 @@ code/
 │   │   ├── chat_agent.md
 │   │   └── qa_agent.md
 │   └── sdk/
-├── frontend/
-│   └── src/
-│       ├── lib/
-│       │   └── apiFetch.ts   # Auth-injecting fetch wrapper
-│       ├── context/
-│       │   └── AuthContext.tsx
-│       ├── api/
-│       ├── hooks/
-│       ├── pages/
-│       └── components/
 ├── tests/
 └── examples/
 ```

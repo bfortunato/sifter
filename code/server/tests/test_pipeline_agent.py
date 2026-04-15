@@ -6,7 +6,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from sifter_server.services.pipeline_agent import generate_pipeline, _build_field_schema, _infer_type
+from sifter.services.pipeline_agent import generate_pipeline, _build_field_schema, _infer_type
 
 
 def test_infer_type_string():

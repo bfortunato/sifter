@@ -49,14 +49,14 @@ dev = [
 ]
 
 [project.scripts]
-sifter-server = "sifter_server.server:run"
+sifter-server = "sifter.server:run"
 
 [project.urls]
 Homepage = "https://github.com/sifter-ai/sifter"
 Repository = "https://github.com/sifter-ai/sifter"
 
 [tool.hatch.build.targets.wheel]
-packages = ["sifter_server"]
+packages = ["sifter"]
 
 [tool.uv]
 package = true

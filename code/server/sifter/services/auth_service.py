@@ -10,8 +10,8 @@ from typing import Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from sifter_server.auth import hash_password, verify_password, create_access_token
-from sifter_server.models.user import APIKey, OrgRole, Organization, OrganizationMember, User
+from sifter.auth import hash_password, verify_password, create_access_token
+from sifter.models.user import APIKey, OrgRole, Organization, OrganizationMember, User
 
 
 def _slugify(text: str) -> str:

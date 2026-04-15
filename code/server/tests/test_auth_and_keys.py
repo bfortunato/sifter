@@ -18,14 +18,14 @@ os.environ.setdefault("SIFTER_LLM_API_KEY", "test-key")
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 # Import app after env vars are set
-from sifter_server.server import app
-from sifter_server.config import config
+from sifter.server import app
+from sifter.config import config
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def disable_rate_limits():
     """Disable slowapi rate limiting for the test session (all requests share 127.0.0.1)."""
-    from sifter_server.limiter import limiter
+    from sifter.limiter import limiter
     original = limiter.enabled
     limiter.enabled = False
     yield
@@ -35,14 +35,14 @@ async def disable_rate_limits():
 @pytest_asyncio.fixture(scope="session")
 async def client():
     """Client with real auth — no dependency_overrides for get_current_principal."""
-    from sifter_server.auth import get_current_principal
+    from sifter.auth import get_current_principal
     # Remove any override installed by other test modules (test_api.py, etc.)
     app.dependency_overrides.pop(get_current_principal, None)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     # Restore the bootstrap override so other modules continue to work if
     # pytest runs this module before them (order isn't guaranteed).
-    from sifter_server.auth import Principal
+    from sifter.auth import Principal
     async def _mock_principal() -> Principal:
         return Principal(key_id="bootstrap")
     app.dependency_overrides[get_current_principal] = _mock_principal
@@ -51,7 +51,7 @@ async def client():
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def clean_db(client):
     """Wipe auth-related collections before each test."""
-    from sifter_server.db import get_db
+    from sifter.db import get_db
     db = get_db()
     for col in ("users", "api_keys", "sifts", "folders"):
         await db[col].delete_many({})
@@ -245,7 +245,7 @@ async def test_create_api_key(client):
 
 async def test_list_api_keys(client):
     # Start clean
-    from sifter_server.db import get_db
+    from sifter.db import get_db
     db = get_db()
     await db["api_keys"].delete_many({})
 
@@ -286,7 +286,7 @@ async def test_revoke_nonexistent_key(client):
 
 
 async def test_revoked_key_not_in_list(client):
-    from sifter_server.db import get_db
+    from sifter.db import get_db
     db = get_db()
     await db["api_keys"].delete_many({})
 

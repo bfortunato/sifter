@@ -144,7 +144,7 @@ if _frontend_dist.exists():
 
 def run():
     uvicorn.run(
-        "sifter_server.server:app",
+        "sifter.server:app",
         host=config.host,
         port=config.port,
         reload=True,

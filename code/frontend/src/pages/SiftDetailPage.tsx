@@ -167,17 +167,27 @@ function AggregationCard({
 
 function docStatusVariant(status: string) {
   switch (status) {
-    case "done": return "default";
-    case "processing": return "secondary";
+    case "done": return "success";
+    case "processing": return "info";
+    case "pending": return "pending";
     case "error": return "destructive";
-    case "discarded": return "secondary";
+    case "discarded": return "pending";
     default: return "outline";
+  }
+}
+
+function docStatusDot(status: string) {
+  switch (status) {
+    case "done": return "bg-emerald-500";
+    case "error": return "bg-red-500";
+    case "pending": case "discarded": return "bg-slate-400";
+    default: return null;
   }
 }
 
 function docStatusLabel(status: string) {
   switch (status) {
-    case "done": return "Done";
+    case "done": return "Extracted";
     case "processing": return "Processing";
     case "pending": return "Pending";
     case "error": return "Error";
@@ -229,8 +239,12 @@ function DocumentsPanel({ siftId, isIndexing }: { siftId: string; isIndexing: bo
                 )}
               </td>
               <td className="px-3 py-2">
-                <Badge variant={docStatusVariant(doc.status) as any} className="text-xs">
-                  {doc.status === "processing" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                <Badge variant={docStatusVariant(doc.status) as any}>
+                  {doc.status === "processing" ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : docStatusDot(doc.status) ? (
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${docStatusDot(doc.status)}`} />
+                  ) : null}
                   {docStatusLabel(doc.status)}
                 </Badge>
               </td>

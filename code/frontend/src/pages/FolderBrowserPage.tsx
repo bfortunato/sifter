@@ -53,18 +53,36 @@ function formatBytes(bytes: number) {
 
 function statusColor(status: string) {
   switch (status) {
-    case "done": return "default";
-    case "processing": return "secondary";
+    case "done": return "success";
+    case "processing": return "info";
+    case "pending": return "pending";
     case "error": return "destructive";
+    case "discarded": return "pending";
     default: return "outline";
   }
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  done: "Extracted",
+  processing: "Processing",
+  pending: "Pending",
+  error: "Error",
+  discarded: "Discarded",
+};
+
 function DocStatusBadge({ status }: { status: string }) {
   return (
-    <Badge variant={statusColor(status) as any} className="capitalize text-xs">
-      {status === "processing" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-      {status}
+    <Badge variant={statusColor(status) as any}>
+      {status === "processing" ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : status === "done" ? (
+        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
+      ) : status === "error" ? (
+        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-red-500" />
+      ) : status === "pending" || status === "discarded" ? (
+        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-slate-400" />
+      ) : null}
+      {STATUS_LABELS[status] ?? status}
     </Badge>
   );
 }

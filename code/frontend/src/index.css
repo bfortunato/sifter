@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 263 30% 98.5%;
     --foreground: 263 40% 8%;
     --card: 0 0% 100%;
     --card-foreground: 263 40% 8%;
@@ -34,5 +34,7 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }

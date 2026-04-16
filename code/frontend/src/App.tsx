@@ -28,10 +28,10 @@ const queryClient = new QueryClient({
 });
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors w-full ${
+  `flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all w-full ${
     isActive
-      ? "bg-muted font-medium text-foreground"
-      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+      ? "bg-primary/10 font-medium text-foreground border-l-2 border-primary pl-[10px]"
+      : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border-l-2 border-transparent pl-[10px]"
   }`;
 
 function Sidebar() {
@@ -40,9 +40,9 @@ function Sidebar() {
   if (!isAuthenticated) return null;
 
   return (
-    <aside className="w-56 h-screen sticky top-0 flex flex-col border-r bg-background shrink-0">
+    <aside className="w-56 h-screen sticky top-0 flex flex-col border-r bg-card shrink-0">
       {/* Logo */}
-      <div className="px-4 py-4">
+      <div className="px-4 py-4 border-b border-border/50">
         <Link
           to="/"
           className="font-bold text-lg tracking-tight flex items-center gap-2.5"
@@ -53,7 +53,7 @@ function Sidebar() {
       </div>
 
       {/* Main nav */}
-      <nav className="flex flex-col gap-1 px-2">
+      <nav className="flex flex-col gap-0.5 px-2 pt-3">
         <NavLink to="/" end className={navLinkClass}>
           <FileText className="h-4 w-4 shrink-0" />
           Sifts
@@ -69,7 +69,7 @@ function Sidebar() {
       </nav>
 
       {/* Bottom section */}
-      <div className="mt-auto flex flex-col gap-1 px-2 pb-4">
+      <div className="mt-auto flex flex-col gap-0.5 px-2 pb-4 border-t border-border/50 pt-3">
         {user?.email && (
           <p className="px-3 py-1 text-xs text-muted-foreground truncate">
             {user.email}
@@ -81,7 +81,7 @@ function Sidebar() {
         </NavLink>
         <button
           onClick={logout}
-          className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors w-full text-left"
+          className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all w-full text-left border-l-2 border-transparent pl-[10px]"
         >
           <LogOut className="h-4 w-4 shrink-0" />
           Sign out

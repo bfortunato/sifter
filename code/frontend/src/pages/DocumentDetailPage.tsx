@@ -19,11 +19,21 @@ function formatBytes(bytes: number) {
 
 function statusVariant(status: string) {
   switch (status) {
-    case "done": return "default";
-    case "processing": return "secondary";
+    case "done": return "success";
+    case "processing": return "info";
+    case "pending": return "pending";
     case "error": return "destructive";
-    case "discarded": return "secondary";
+    case "discarded": return "pending";
     default: return "outline";
+  }
+}
+
+function statusDot(status: string) {
+  switch (status) {
+    case "done": return "bg-emerald-500";
+    case "error": return "bg-red-500";
+    case "discarded": return "bg-slate-400";
+    default: return null;
   }
 }
 
@@ -261,13 +271,14 @@ export default function DocumentDetailPage() {
                       <span className="font-medium text-sm">
                         {sift?.name ?? s.sift_id}
                       </span>
-                      <Badge
-                        variant={statusVariant(s.status) as any}
-                        className="capitalize text-xs"
-                      >
-                        {s.status === "processing" && (
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        )}
+                      <Badge variant={statusVariant(s.status) as any}>
+                        {s.status === "processing" || s.status === "pending" ? (
+                          s.status === "processing"
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-slate-400" />
+                        ) : statusDot(s.status) ? (
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(s.status)}`} />
+                        ) : null}
                         {statusLabel(s.status)}
                       </Badge>
                     </div>

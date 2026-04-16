@@ -51,39 +51,69 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
-function statusColor(status: string) {
+// Aggregate: what's the "loudest" status across all sifts for a document
+function aggregateStatus(statuses: DocumentSiftStatus[]): string | null {
+  if (!statuses?.length) return null;
+  if (statuses.some((s) => s.status === "error")) return "error";
+  if (statuses.some((s) => s.status === "processing")) return "processing";
+  if (statuses.some((s) => s.status === "pending")) return "pending";
+  if (statuses.every((s) => s.status === "discarded")) return "discarded";
+  if (statuses.some((s) => s.status === "done")) return "done";
+  return null;
+}
+
+function dotColor(status: string) {
   switch (status) {
-    case "done": return "success";
-    case "processing": return "info";
-    case "pending": return "pending";
-    case "error": return "destructive";
-    case "discarded": return "pending";
-    default: return "outline";
+    case "done": return "bg-emerald-400";
+    case "processing": return "bg-amber-400";
+    case "pending": return "bg-amber-300";
+    case "error": return "bg-red-400";
+    case "discarded": return "bg-slate-300";
+    default: return "bg-slate-200";
   }
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  done: "Extracted",
-  processing: "Processing",
-  pending: "Pending",
-  error: "Error",
-  discarded: "Discarded",
-};
+function statusLabel(status: string) {
+  switch (status) {
+    case "done": return "Extracted";
+    case "processing": return "Processing";
+    case "pending": return "Pending";
+    case "error": return "Error";
+    case "discarded": return "Discarded";
+    default: return status;
+  }
+}
 
-function DocStatusBadge({ status }: { status: string }) {
+interface SiftDotsProps {
+  statuses: DocumentSiftStatus[];
+  sifts: Array<{ id: string; name: string }>;
+}
+
+function SiftDots({ statuses, sifts }: SiftDotsProps) {
+  if (!statuses?.length) return null;
+
+  const hasProcessing = statuses.some(
+    (s) => s.status === "processing" || s.status === "pending"
+  );
+
   return (
-    <Badge variant={statusColor(status) as any}>
-      {status === "processing" ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
-      ) : status === "done" ? (
-        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
-      ) : status === "error" ? (
-        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-red-500" />
-      ) : status === "pending" || status === "discarded" ? (
-        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-slate-400" />
-      ) : null}
-      {STATUS_LABELS[status] ?? status}
-    </Badge>
+    <div className="flex items-center gap-1 shrink-0">
+      {hasProcessing && (
+        <Loader2 className="h-3 w-3 text-amber-500 animate-spin mr-0.5" />
+      )}
+      {statuses.map((s) => {
+        const sift = sifts.find((e) => e.id === s.sift_id);
+        const name = sift?.name ?? s.sift_id;
+        const label = statusLabel(s.status);
+        return (
+          <span
+            key={s.sift_id}
+            className={`w-2 h-2 rounded-full shrink-0 ${dotColor(s.status)} transition-transform hover:scale-125`}
+            title={`${name}: ${label}`}
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -540,40 +570,53 @@ interface DocumentRowProps {
 }
 
 function DocumentRow({ doc, allSifts, onOpen, onChat }: DocumentRowProps) {
+  const agg = aggregateStatus(doc.sift_statuses ?? []);
+
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-primary/[0.03] transition-colors group">
-      <FileText className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-      <button
-        className="font-medium text-sm truncate text-left flex-1 hover:text-primary transition-colors"
-        onClick={onOpen}
-      >
+    <div
+      className="flex items-center gap-3 px-4 py-2.5 hover:bg-primary/[0.03] transition-colors group cursor-pointer"
+      onClick={onOpen}
+    >
+      {/* File icon with aggregate status dot */}
+      <div className="relative shrink-0">
+        <FileText className="h-3.5 w-3.5 text-muted-foreground/50" />
+        {agg && (
+          <span
+            className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-background ${dotColor(agg)}`}
+          />
+        )}
+      </div>
+
+      {/* Filename */}
+      <span className="font-medium text-sm truncate flex-1 group-hover:text-primary transition-colors">
         {doc.filename}
-      </button>
-      <span className="font-mono text-[11px] text-muted-foreground/70 shrink-0 tabular-nums w-14 text-right hidden sm:block">
+      </span>
+
+      {/* Sift dots */}
+      {doc.sift_statuses?.length > 0 && (
+        <SiftDots statuses={doc.sift_statuses} sifts={allSifts} />
+      )}
+
+      {/* Size */}
+      <span className="font-mono text-[11px] text-muted-foreground/60 shrink-0 tabular-nums w-14 text-right hidden sm:block">
         {formatBytes(doc.size_bytes)}
       </span>
-      <span className="text-[11px] text-muted-foreground/70 shrink-0 w-20 text-right hidden md:block">
+
+      {/* Date */}
+      <span className="text-[11px] text-muted-foreground/60 shrink-0 w-20 text-right hidden md:block">
         {new Date(doc.uploaded_at).toLocaleDateString()}
       </span>
-      <div className="flex items-center gap-1.5 shrink-0">
-        {doc.sift_statuses?.map((s: DocumentSiftStatus) => {
-          const ext = allSifts.find((e) => e.id === s.sift_id);
-          return (
-            <div key={s.sift_id} className="flex items-center gap-1">
-              <span className="text-[10px] text-muted-foreground/50 hidden lg:inline font-medium">
-                {ext?.name?.substring(0, 10) ?? s.sift_id.substring(0, 6)}
-              </span>
-              <DocStatusBadge status={s.status} />
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+
+      {/* Hover actions */}
+      <div
+        className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      >
         <Button
           variant="ghost"
           size="sm"
           className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-          onClick={(e) => { e.stopPropagation(); onChat(); }}
+          onClick={onChat}
         >
           Chat
         </Button>

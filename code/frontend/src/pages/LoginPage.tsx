@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuthContext } from "../context/AuthContext";
+import { useConfig } from "../context/ConfigContext";
 import logo from "@/assets/logo.svg";
 
 export default function LoginPage() {
-  const { login } = useAuthContext();
+  const { login, loginWithGoogle } = useAuthContext();
+  const { googleAuthEnabled } = useConfig();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -60,6 +63,34 @@ export default function LoginPage() {
             <h1 className="text-xl font-semibold tracking-tight">Sign in</h1>
             <p className="text-sm text-muted-foreground">Enter your credentials to continue</p>
           </div>
+
+          {googleAuthEnabled && (
+            <div className="space-y-3">
+              <GoogleLogin
+                onSuccess={async (response) => {
+                  if (!response.credential) return;
+                  setError("");
+                  setLoading(true);
+                  try {
+                    await loginWithGoogle(response.credential);
+                    navigate("/");
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Google sign-in failed");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                onError={() => setError("Google sign-in failed")}
+                width="100%"
+                text="signin_with"
+              />
+              <div className="relative flex items-center gap-3">
+                <div className="flex-1 border-t border-border" />
+                <span className="text-xs text-muted-foreground">or</span>
+                <div className="flex-1 border-t border-border" />
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">

@@ -56,6 +56,7 @@ export default function DocumentDetailPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<string>("");
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
   const { data: doc, isLoading, error } = useQuery({
@@ -98,14 +99,15 @@ export default function DocumentDetailPage() {
       return;
     }
     setPreviewLoading(true);
+    setPreviewError(null);
     try {
       const { url, contentType } = await fetchDocumentBlob(documentId!);
       blobUrlRef.current = url;
       setPreviewUrl(url);
-      setPreviewType(contentType);
+      setPreviewType(contentType || doc?.content_type || "");
       setShowPreview(true);
-    } catch {
-      // preview not available
+    } catch (err) {
+      setPreviewError("Preview not available. Try downloading the file instead.");
     } finally {
       setPreviewLoading(false);
     }
@@ -212,14 +214,26 @@ export default function DocumentDetailPage() {
       </div>
 
       {/* Inline preview */}
+      {showPreview && previewLoading && (
+        <div className="rounded-lg border bg-muted/20 flex items-center justify-center h-48">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
       {showPreview && previewUrl && (
         <div className="rounded-lg border overflow-hidden bg-muted/20">
           {previewType === "application/pdf" ? (
-            <iframe src={previewUrl} className="w-full h-[600px]" title={doc.filename} />
+            <object data={previewUrl} type="application/pdf" className="w-full h-[600px]">
+              <p className="p-4 text-sm text-muted-foreground">PDF preview not available in this browser. <a href={previewUrl} download={doc.filename} className="underline">Download</a> to view.</p>
+            </object>
           ) : (
             <img src={previewUrl} alt={doc.filename} className="max-w-full max-h-[600px] object-contain mx-auto block p-4" />
           )}
         </div>
+      )}
+      {previewError && (
+        <Alert variant="destructive">
+          <AlertDescription>{previewError}</AlertDescription>
+        </Alert>
       )}
 
       {/* Metadata */}

@@ -66,7 +66,7 @@ export const useCreateSift = () => {
 export const useUpdateSift = (id: string) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { name?: string; instructions?: string; description?: string }) =>
+    mutationFn: (payload: { name?: string; instructions?: string; description?: string; schema?: string; multi_record?: boolean }) =>
       updateSift(id, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sift", id] });

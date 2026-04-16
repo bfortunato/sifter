@@ -27,6 +27,7 @@ class CreateSiftRequest(BaseModel):
     description: str = ""
     instructions: str
     schema: Optional[str] = None
+    multi_record: bool = False
 
 
 class UpdateSiftRequest(BaseModel):
@@ -34,6 +35,7 @@ class UpdateSiftRequest(BaseModel):
     description: Optional[str] = None
     instructions: Optional[str] = None
     schema: Optional[str] = None
+    multi_record: Optional[bool] = None
 
 
 class QueryRequest(BaseModel):
@@ -65,6 +67,7 @@ async def create_sift(
         description=body.description,
         instructions=body.instructions,
         schema=body.schema,
+        multi_record=body.multi_record,
     )
 
     # Create default folder, link it, and store its ID on the sift
@@ -416,6 +419,7 @@ def _sift_to_dict(s: Sift) -> dict:
         "processed_documents": s.processed_documents,
         "total_documents": s.total_documents,
         "default_folder_id": s.default_folder_id,
+        "multi_record": s.multi_record,
         "created_at": s.created_at.isoformat(),
         "updated_at": s.updated_at.isoformat(),
     }

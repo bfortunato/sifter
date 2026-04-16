@@ -1,6 +1,6 @@
 ---
 title: "Document download and preview in DocumentDetailPage"
-status: pending
+status: applied
 author: "bruno.fortunato@applica.guru"
 created-at: "2026-04-16T12:30:00.000Z"
 ---

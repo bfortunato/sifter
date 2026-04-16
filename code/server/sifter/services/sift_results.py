@@ -28,13 +28,13 @@ class SiftResultsService:
             except Exception:
                 pass  # index doesn't exist — fine
 
-        # Also drop sift_filename_unique before recreating — needed when the
-        # collection has pre-migration rows where filename was null, which
-        # cause DuplicateKeyError during index build.
-        try:
-            await self.col.drop_index("sift_filename_unique")
-        except Exception:
-            pass
+        # Also drop old sift_filename_unique before recreating — needed for
+        # migration to the new (sift_id, filename, record_index) index.
+        for stale_name in ("sift_filename_unique",):
+            try:
+                await self.col.drop_index(stale_name)
+            except Exception:
+                pass
 
         # Remove rows that predate the document_id/filename split (filename: null).
         # These are invalid stale records that cannot satisfy the new unique constraint.
@@ -46,11 +46,12 @@ class SiftResultsService:
                 reason="filename_null_pre_migration",
             )
 
-        # Idempotency: one result per (sift, filename)
+        # Idempotency: one result per (sift, filename, record_index).
+        # record_index=0 for single-record sifts; multi-record sifts use 0,1,2,...
         await self.col.create_index(
-            [("sift_id", 1), ("filename", 1)],
+            [("sift_id", 1), ("filename", 1), ("record_index", 1)],
             unique=True,
-            name="sift_filename_unique",
+            name="sift_filename_record_unique",
         )
         await self.col.create_index("sift_id", name="sift_id_idx")
 
@@ -62,6 +63,7 @@ class SiftResultsService:
         document_type: str,
         confidence: float,
         extracted_data: dict[str, Any],
+        record_index: int = 0,
     ) -> SiftResult:
         result = SiftResult(
             sift_id=sift_id,
@@ -70,16 +72,17 @@ class SiftResultsService:
             document_type=document_type,
             confidence=confidence,
             extracted_data=extracted_data,
+            record_index=record_index,
             created_at=datetime.now(timezone.utc),
         )
         doc = result.to_mongo()
-        # Upsert by (sift_id, filename) for idempotency — same file reprocessed overwrites
+        # Upsert by (sift_id, filename, record_index) for idempotency
         await self.col.replace_one(
-            {"sift_id": sift_id, "filename": filename},
+            {"sift_id": sift_id, "filename": filename, "record_index": record_index},
             doc,
             upsert=True,
         )
-        logger.info("result_inserted", sift_id=sift_id, document_id=document_id, filename=filename)
+        logger.info("result_inserted", sift_id=sift_id, document_id=document_id, filename=filename, record_index=record_index)
         return result
 
     async def get_results(

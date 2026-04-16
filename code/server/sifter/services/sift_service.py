@@ -42,6 +42,7 @@ class SiftService:
         description: str,
         instructions: str,
         schema: Optional[str] = None,
+        multi_record: bool = False,
     ) -> Sift:
         sift = Sift(
             name=name,
@@ -49,6 +50,7 @@ class SiftService:
             instructions=instructions,
             schema=schema,
             status=SiftStatus.ACTIVE,
+            multi_record=multi_record,
         )
         doc = sift.to_mongo()
         result = await self.col.insert_one(doc)
@@ -128,6 +130,7 @@ class SiftService:
                         file_path=local_file,
                         instructions=sift.instructions,
                         schema=schema,
+                        multi_record=sift.multi_record,
                     )
 
                 if not result.matches_filter:
@@ -142,18 +145,21 @@ class SiftService:
                     continue
 
                 filename = Path(file_path).name
-                await self.results_service.insert_result(
-                    sift_id=sift_id,
-                    document_id=str(uuid4()),
-                    filename=filename,
-                    document_type=result.document_type,
-                    confidence=result.confidence,
-                    extracted_data=result.extracted_data,
-                )
+                doc_id = str(uuid4())
+                for rec_idx, record_data in enumerate(result.extracted_data):
+                    await self.results_service.insert_result(
+                        sift_id=sift_id,
+                        document_id=doc_id,
+                        filename=filename,
+                        document_type=result.document_type,
+                        confidence=result.confidence,
+                        extracted_data=record_data,
+                        record_index=rec_idx,
+                    )
 
                 # Infer schema from first successful result
                 if schema is None and result.extracted_data:
-                    schema = _infer_schema(result.extracted_data)
+                    schema = _infer_schema(result.extracted_data[0])
                     await self.update(sift_id, {"schema": schema})
 
                 await self.update(sift_id, {"processed_documents": idx + 1 - len(errors)})
@@ -199,7 +205,7 @@ class SiftService:
 
     async def process_single_document(
         self, sift_id: str, file_path: str, document_id: str | None = None
-    ) -> SiftResult:
+    ) -> list[SiftResult]:
         sift = await self.get(sift_id)
         if not sift:
             raise ValueError(f"Sift {sift_id} not found")
@@ -210,23 +216,30 @@ class SiftService:
                 file_path=local_file,
                 instructions=sift.instructions,
                 schema=sift.schema,
+                multi_record=sift.multi_record,
             )
 
         if not result.matches_filter:
             raise DocumentDiscardedError(reason=result.filter_reason or "")
 
         filename = Path(file_path).name
-        stored = await self.results_service.insert_result(
-            sift_id=sift_id,
-            document_id=document_id or str(uuid4()),
-            filename=filename,
-            document_type=result.document_type,
-            confidence=result.confidence,
-            extracted_data=result.extracted_data,
-        )
+        doc_id = document_id or str(uuid4())
+        stored: list[SiftResult] = []
+
+        for idx, record_data in enumerate(result.extracted_data):
+            s = await self.results_service.insert_result(
+                sift_id=sift_id,
+                document_id=doc_id,
+                filename=filename,
+                document_type=result.document_type,
+                confidence=result.confidence,
+                extracted_data=record_data,
+                record_index=idx,
+            )
+            stored.append(s)
 
         if not sift.schema and result.extracted_data:
-            schema = _infer_schema(result.extracted_data)
+            schema = _infer_schema(result.extracted_data[0])
             await self.update(sift_id, {"schema": schema})
 
         # Increment processed_documents atomically without overwriting total_documents
@@ -261,9 +274,11 @@ class SiftService:
             {
                 "id": r.id,
                 "document_id": r.document_id,
+                "filename": r.filename,
                 "document_type": r.document_type,
                 "confidence": r.confidence,
                 "extracted_data": r.extracted_data,
+                "record_index": r.record_index,
                 "created_at": r.created_at.isoformat(),
             }
             for r in results

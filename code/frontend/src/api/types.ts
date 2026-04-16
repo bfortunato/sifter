@@ -55,6 +55,7 @@ export interface Sift {
   processed_documents: number;
   total_documents: number;
   default_folder_id: string | null;
+  multi_record: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +67,7 @@ export interface SiftRecord {
   document_type: string;
   confidence: number;
   extracted_data: Record<string, unknown>;
+  record_index: number;
   created_at: string;
 }
 
@@ -77,6 +79,7 @@ export interface CreateSiftPayload {
   description?: string;
   instructions: string;
   schema?: string;
+  multi_record?: boolean;
 }
 
 // ---- Aggregations ----

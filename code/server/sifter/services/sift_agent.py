@@ -24,7 +24,7 @@ class ExtractionAgentResult:
     matches_filter: bool
     filter_reason: str
     confidence: float
-    extracted_data: dict[str, Any]
+    extracted_data: list[dict[str, Any]]
 
 
 def _strip_markdown_fences(text: str) -> str:
@@ -39,6 +39,7 @@ async def extract(
     file_path: str | Path,
     instructions: str,
     schema: Optional[str] = None,
+    multi_record: bool = False,
 ) -> ExtractionAgentResult:
     """
     Extract structured data from a document using an LLM.
@@ -47,9 +48,10 @@ async def extract(
         file_path: Path to the document file (PDF, image, text)
         instructions: Natural language extraction instructions
         schema: Optional schema string from previous extractions for consistency
+        multi_record: If True, extract multiple records (JSON array); otherwise single record
 
     Returns:
-        ExtractionAgentResult with extracted fields
+        ExtractionAgentResult with extracted_data as a list of dicts (always)
     """
     processed = _file_processor.process(file_path)
 
@@ -58,6 +60,16 @@ async def extract(
 
     # Text part: instructions + document text
     text_parts = [f"## Extraction Instructions\n{instructions}"]
+    if multi_record:
+        text_parts.append(
+            "## Output Format\nReturn a JSON **array** of objects in the `extractedData` field, "
+            "one object per record found in the document. If the document contains only one record, "
+            "return a single-element array."
+        )
+    else:
+        text_parts.append(
+            "## Output Format\nReturn a single JSON object in the `extractedData` field."
+        )
     if schema:
         text_parts.append(f"## Expected Schema (maintain consistency)\n{schema}")
     if processed.text_content:
@@ -97,10 +109,24 @@ async def extract(
         logger.error("extraction_json_parse_error", raw=raw[:500], error=str(e))
         raise ValueError(f"LLM returned invalid JSON: {e}") from e
 
+    raw_extracted = data.get("extractedData", {})
+    if multi_record:
+        # Expect a list; wrap dict in list if model returned a single object
+        if isinstance(raw_extracted, list):
+            extracted_list = raw_extracted
+        else:
+            extracted_list = [raw_extracted] if raw_extracted else []
+    else:
+        # Expect a dict; take first element if model returned a list
+        if isinstance(raw_extracted, list):
+            extracted_list = [raw_extracted[0]] if raw_extracted else [{}]
+        else:
+            extracted_list = [raw_extracted]
+
     return ExtractionAgentResult(
         document_type=data.get("documentType", "unknown"),
         matches_filter=data.get("matchesFilter", True),
         filter_reason=data.get("filterReason", ""),
         confidence=float(data.get("confidence", 0.0)),
-        extracted_data=data.get("extractedData", {}),
+        extracted_data=extracted_list,
     )

@@ -26,7 +26,7 @@ export const createSift = (payload: CreateSiftPayload): Promise<Sift> =>
 
 export const updateSift = (
   id: string,
-  payload: { name?: string; instructions?: string; description?: string }
+  payload: { name?: string; instructions?: string; description?: string; schema?: string; multi_record?: boolean }
 ): Promise<Sift> =>
   apiFetchJson<Sift>(`${BASE}/${id}`, {
     method: "PATCH",

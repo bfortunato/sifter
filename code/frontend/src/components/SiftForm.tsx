@@ -26,6 +26,7 @@ export function SiftForm({ trigger, onCreated }: SiftFormProps) {
     name: "",
     description: "",
     instructions: "",
+    multi_record: false,
   });
   const { mutate, isPending, error } = useCreateSift();
 
@@ -35,7 +36,7 @@ export function SiftForm({ trigger, onCreated }: SiftFormProps) {
     mutate(form, {
       onSuccess: (sift) => {
         setOpen(false);
-        setForm({ name: "", description: "", instructions: "" });
+        setForm({ name: "", description: "", instructions: "", multi_record: false });
         onCreated?.(sift.id);
       },
     });
@@ -86,6 +87,23 @@ export function SiftForm({ trigger, onCreated }: SiftFormProps) {
             <p className="text-xs text-muted-foreground">
               Describe what fields to extract in natural language.
             </p>
+          </div>
+          <div className="flex items-start gap-3">
+            <input
+              id="multi-record"
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 cursor-pointer accent-primary"
+              checked={!!form.multi_record}
+              onChange={(e) => setForm((f) => ({ ...f, multi_record: e.target.checked }))}
+            />
+            <div>
+              <Label htmlFor="multi-record" className="cursor-pointer font-medium">
+                Extract multiple records per document
+              </Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Enable when a single document can contain several records (e.g. a table of items).
+              </p>
+            </div>
           </div>
           {error && (
             <p className="text-sm text-destructive">{(error as Error).message}</p>

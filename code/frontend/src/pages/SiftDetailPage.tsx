@@ -347,6 +347,7 @@ export function SiftDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState("");
   const [editInstructions, setEditInstructions] = useState("");
+  const [editMultiRecord, setEditMultiRecord] = useState(false);
   const updateMutation = useUpdateSift(id!);
 
   const isIndexing = (status: string) => status === "indexing";
@@ -382,12 +383,13 @@ export function SiftDetailPage() {
   const handleEditOpen = () => {
     setEditName(extraction?.name ?? "");
     setEditInstructions(extraction?.instructions ?? "");
+    setEditMultiRecord(extraction?.multi_record ?? false);
     setShowEdit(true);
   };
 
   const handleEditSave = () => {
     updateMutation.mutate(
-      { name: editName, instructions: editInstructions },
+      { name: editName, instructions: editInstructions, multi_record: editMultiRecord },
       { onSuccess: () => setShowEdit(false) }
     );
   };
@@ -467,6 +469,10 @@ export function SiftDetailPage() {
               </button>
             </div>
           )}
+          <div>
+            <span className="font-medium text-muted-foreground">Mode: </span>
+            {extraction.multi_record ? "Multi-record (one document → many rows)" : "Single record per document"}
+          </div>
           {extraction.error && (
             <Alert variant="destructive">
               <AlertDescription>{extraction.error}</AlertDescription>
@@ -558,6 +564,23 @@ export function SiftDetailPage() {
                 rows={4}
                 className="resize-none"
               />
+            </div>
+            <div className="flex items-start gap-3">
+              <input
+                id="edit-multi-record"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 cursor-pointer accent-primary"
+                checked={editMultiRecord}
+                onChange={(e) => setEditMultiRecord(e.target.checked)}
+              />
+              <div>
+                <Label htmlFor="edit-multi-record" className="cursor-pointer font-medium">
+                  Extract multiple records per document
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Enable when a single document can contain several records.
+                </p>
+              </div>
             </div>
             <Button
               onClick={handleEditSave}

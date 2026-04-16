@@ -23,6 +23,7 @@ class Sift(BaseModel):
     processed_documents: int = 0
     total_documents: int = 0
     default_folder_id: Optional[str] = None
+    multi_record: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

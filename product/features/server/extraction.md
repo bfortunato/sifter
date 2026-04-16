@@ -39,6 +39,7 @@ Key fields returned by `GET /api/sifts/{id}`:
 | `processed_documents` | int | Documents successfully processed |
 | `total_documents` | int | Total documents enqueued |
 | `default_folder_id` | string? | ID of the auto-created default folder; `null` for pre-existing sifts until their first direct upload |
+| `multi_record` | bool | If `true`, each document can produce multiple `SiftResult` rows (one per record found) |
 
 ## Processing Pipeline
 
@@ -95,12 +96,22 @@ Sorted by `uploaded_at` descending. Supports `?limit=50&offset=0` pagination.
 
 If the document was deleted after processing, `filename` is `null`.
 
+## Multi-Record Extraction
+
+When `multi_record: true` on a Sift, the extraction agent is prompted to return `extractedData` as a JSON array of objects instead of a single object. Each element in the array becomes its own `SiftResult` with a `record_index` (0-based).
+
+- `SiftResult.record_index` is `0` for all single-record sifts; `0, 1, 2, ...` for multi-record
+- The unique index on sift results is `(sift_id, filename, record_index)` — reprocessing a document replaces its rows for that file
+- `sift_record_id` in `DocumentSiftStatus` points to the first record's ID (`record_index=0`)
+- Schema inference uses the first record's keys
+
 ## Key Behaviors
 
-- Each document produces one `SiftResult` record with `extracted_data` key-value pairs
+- By default (single-record), each document produces exactly one `SiftResult` row with flat `extracted_data` key-value pairs
+- With `multi_record: true`, one document can produce N rows, one per record found by the LLM
 - Fields not found in a document are set to `null`
 - Numeric values stored as numbers, dates as ISO YYYY-MM-DD strings
 - The sift tracks status: `active`, `indexing`, `paused`, `error`
-- Progress tracked via `processed_documents` / `total_documents` counters
+- Progress tracked via `processed_documents` / `total_documents` counters (per document, not per record)
 - Schema inference: after first document processed, generate a schema string like "client (string), date (string), amount (number)"
 - A sift can have multiple folders linked to it (many-to-many via `folder_extractors`); `default_folder_id` identifies the one created automatically at sift creation

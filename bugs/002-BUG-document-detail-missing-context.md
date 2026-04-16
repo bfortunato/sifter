@@ -1,6 +1,6 @@
 ---
 title: "Document detail page missing folder breadcrumb and filter_reason in API response"
-status: open
+status: resolved
 author: "bruno.fortunato@applica.guru"
 created-at: "2026-04-16T12:30:00.000Z"
 ---

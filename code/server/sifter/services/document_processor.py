@@ -99,12 +99,14 @@ async def worker(db: AsyncIOMotorDatabase) -> None:
 
             from ..storage import local_path as storage_local_path
             async with storage_local_path(storage_path) as local_file:
-                result = await ext_svc.process_single_document(
+                results = await ext_svc.process_single_document(
                     sift_id, local_file, document_id=document_id
                 )
 
+            # Store first record's ID for traceability; multi-record docs may have many
+            first_record_id = results[0].id if results else None
             await doc_svc.update_sift_status(
-                document_id, sift_id, DocumentSiftStatusEnum.DONE, sift_record_id=result.id
+                document_id, sift_id, DocumentSiftStatusEnum.DONE, sift_record_id=first_record_id
             )
 
             await db[COLLECTION].update_one(
@@ -121,7 +123,7 @@ async def worker(db: AsyncIOMotorDatabase) -> None:
             await _dispatch_webhook(
                 db=db,
                 event="sift.document.processed",
-                payload={"document_id": document_id, "sift_id": sift_id, "record_id": result.id},
+                payload={"document_id": document_id, "sift_id": sift_id, "record_id": first_record_id, "record_count": len(results)},
                 sift_id=sift_id,
             )
 

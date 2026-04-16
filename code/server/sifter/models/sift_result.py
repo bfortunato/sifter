@@ -12,6 +12,7 @@ class SiftResult(BaseModel):
     document_type: str = "unknown"
     confidence: float = 0.0
     extracted_data: dict[str, Any] = {}
+    record_index: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}

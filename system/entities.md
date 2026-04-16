@@ -63,6 +63,7 @@ MongoDB collection: `sifts`
     "processed_documents": int,
     "total_documents": int,
     "default_folder_id": str | None,  # ID of auto-created folder; null for pre-existing sifts
+    "multi_record": bool,              # if true, one document → N SiftResult rows
     "created_at": datetime,
     "updated_at": datetime
 }
@@ -72,16 +73,18 @@ MongoDB collection: `sifts`
 
 MongoDB collection: `sift_results`
 
-Compound index on `(sift_id, document_id)`.
+Unique compound index on `(sift_id, filename, record_index)`.
 
 ```python
 {
     "_id": ObjectId,
     "sift_id": str,
     "document_id": str,
+    "filename": str,
     "document_type": str,
     "confidence": float,
-    "extracted_data": dict,
+    "extracted_data": dict,     # flat key-value pairs for one record
+    "record_index": int,        # 0 for single-record sifts; 0,1,2,... for multi-record
     "created_at": datetime
 }
 ```

@@ -166,6 +166,7 @@ The JWT payload includes `org_id`: `{ "sub": user_id, "org_id": org_id, "exp": .
 | Python SDK | ✓ | ✓ |
 | Webhooks | ✓ | ✓ |
 | Auth (API keys + JWT) | ✓ | ✓ |
+| Google OAuth | ✓ | ✓ |
 | Storage backends (FS/S3/GCS) | ✓ | ✓ |
 | React UI | ✓ | ✓ |
 | Multi-tenant orgs | — | ✓ |

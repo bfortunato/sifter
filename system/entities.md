@@ -11,17 +11,21 @@ status: synced
 
 MongoDB collection: `users`
 
-Unique index on `email`.
+Unique index on `email`. Unique sparse index on `google_id` (partial, non-null only).
 
 ```python
 {
     "_id": ObjectId,
     "email": str,                # unique, stored lowercase
-    "hashed_password": str,      # bcrypt hash
+    "hashed_password": str | None,  # bcrypt hash; None for Google-only users
     "full_name": str,
+    "google_id": str | None,     # Google "sub" claim; set for Google-authenticated users
+    "auth_provider": str,        # "email" (default) or "google"
     "created_at": datetime
 }
 ```
+
+Account linking: when a Google user logs in and no user with that `google_id` exists, the system looks up by `email`. If found, the existing user is linked (sets `google_id` and `auth_provider`). Otherwise a new user is created.
 
 ## APIKey
 

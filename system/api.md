@@ -7,7 +7,7 @@ status: synced
 
 Base path: `/api`
 
-**Auth:** All endpoints except `/api/auth/register`, `/api/auth/login`, and `/health` require `Authorization: Bearer <jwt>` or `X-API-Key: sk-...`. Sifter OSS is single-tenant — no org scoping. Multi-tenant org management is a cloud-only feature (see `system/cloud.md`).
+**Auth:** All endpoints except `/api/auth/register`, `/api/auth/login`, `/api/auth/google`, and `/health` require `Authorization: Bearer <jwt>` or `X-API-Key: sk-...`. Sifter OSS is single-tenant — no org scoping. Multi-tenant org management is a cloud-only feature (see `system/cloud.md`).
 
 **Anonymous access:** By default, requests without credentials are allowed (Principal = `anonymous`). Set `SIFTER_REQUIRE_API_KEY=true` to enforce auth on all endpoints.
 
@@ -19,6 +19,7 @@ Enforced via `slowapi`, keyed by client IP.
 |----------|-------|
 | `POST /api/auth/login` | 10 requests / minute |
 | `POST /api/auth/register` | 5 requests / minute |
+| `POST /api/auth/google` | 10 requests / minute |
 | `POST /api/folders/{id}/documents` | 30 requests / minute |
 | `POST /api/sifts/{id}/upload` | 30 requests / minute |
 
@@ -28,10 +29,14 @@ Enforced via `slowapi`, keyed by client IP.
 |--------|------|-------------|
 | POST | `/api/auth/register` | Register user; returns JWT + user info |
 | POST | `/api/auth/login` | Login; returns JWT + user info |
+| POST | `/api/auth/google` | Google OAuth login; exchange authorization code for JWT + user info |
 | GET | `/api/auth/me` | Current user info (requires JWT or API key) |
 
 Register/Login body: `{ "email", "password", "full_name"? }`
-JWT response: `{ "access_token": str, "token_type": "bearer", "user": { id, email, full_name, created_at } }`
+Google body: `{ "code": "<Google OAuth authorization code>" }`
+JWT response: `{ "access_token": str, "token_type": "bearer", "user": { id, email, full_name, auth_provider, created_at } }`
+
+Google auth is only available when `SIFTER_GOOGLE_CLIENT_ID` is configured. When not configured, the endpoint returns 404.
 
 ## API Keys
 
@@ -132,8 +137,10 @@ Chat response: `{ "response": str, "data"?: list, "pipeline"?: list }`
 `GET /api/config` — no auth required. Returns deployment-level configuration.
 
 ```json
-{ "mode": "oss" }
+{ "mode": "oss", "google_auth_enabled": false }
 ```
+
+`google_auth_enabled` is `true` when `SIFTER_GOOGLE_CLIENT_ID` is set. The frontend uses this to show/hide the "Sign in with Google" button.
 
 In `sifter-cloud`, this is overridden to return `{ "mode": "cloud" }`. The frontend uses this to show/hide billing, team management, and org switching.
 

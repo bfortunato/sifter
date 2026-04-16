@@ -12,7 +12,7 @@ status: synced
 - **Database**: MongoDB via `motor` (async driver)
 - **AI**: LiteLLM (multi-provider: OpenAI, Anthropic, Google, Ollama)
 - **PDF processing**: pymupdf (fitz) for text extraction + page images
-- **Auth**: `python-jose` (JWT HS256) + `passlib[bcrypt]` (password hashing)
+- **Auth**: `python-jose` (JWT HS256) + `passlib[bcrypt]` (password hashing) + `google-auth` (Google OAuth ID token verification)
 - **Rate limiting**: `slowapi` with `get_remote_address` key function
 - **Logging**: structlog
 - **Validation**: Pydantic v2
@@ -37,6 +37,19 @@ Resolution order:
 
 Invalid key (present but unrecognized) always raises HTTP 401.
 
+### Google OAuth 2.0
+
+When `SIFTER_GOOGLE_CLIENT_ID` is configured, users can authenticate via Google:
+
+1. Frontend renders a "Sign in with Google" button using `@react-oauth/google`
+2. On success, the frontend sends the authorization code to `POST /api/auth/google`
+3. Backend exchanges the code for tokens via `POST https://oauth2.googleapis.com/token`
+4. Backend verifies the ID token, extracts `sub` (Google user ID), `email`, `name`
+5. User is looked up by `google_id`, then by `email` (for account linking), or created
+6. A standard Sifter JWT is issued — no changes to `get_current_principal()` needed
+
+Configuration env vars: `SIFTER_GOOGLE_CLIENT_ID`, `SIFTER_GOOGLE_CLIENT_SECRET`, `SIFTER_GOOGLE_REDIRECT_URI`.
+
 ### JWT Configuration
 
 - Algorithm: HS256
@@ -59,6 +72,7 @@ Invalid key (present but unrecognized) always raises HTTP 401.
 |----------|-------|
 | `POST /api/auth/login` | 10 / minute |
 | `POST /api/auth/register` | 5 / minute |
+| `POST /api/auth/google` | 10 / minute |
 | `POST /api/folders/{id}/documents` | 30 / minute |
 | `POST /api/sifts/{id}/upload` | 30 / minute |
 

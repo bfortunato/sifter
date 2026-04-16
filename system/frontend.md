@@ -25,6 +25,7 @@ React 18 + Vite + TypeScript + shadcn/ui. Lives in `code/frontend/`.
 - On 401: `apiFetch` clears the token and dispatches a `sifter:auth-expired` custom event
 - `AuthContext` (`src/context/AuthContext.tsx`) listens to that event, clears state, navigates to `/login`
 - `ProtectedRoute` wraps all authenticated routes
+- Google OAuth: `AuthContext` also exposes `loginWithGoogle(code)` which calls `POST /api/auth/google`, stores the JWT, and updates auth state. Uses `@react-oauth/google` library for the Sign-In button.
 
 ## Mode-aware behavior
 
@@ -49,8 +50,8 @@ Auth info (current user, org, plan) comes from `GET /api/auth/me` — per-sessio
 
 | Path | Component | Description |
 |------|-----------|-------------|
-| `/login` | `LoginPage` | Email + password login |
-| `/register` | `RegisterPage` | New account registration |
+| `/login` | `LoginPage` | Email + password login + Google OAuth (when enabled) |
+| `/register` | `RegisterPage` | New account registration + Google OAuth (when enabled) |
 | `/invite/accept` | (redirect) | Accept org invite via `?token=` param |
 
 ### Authenticated

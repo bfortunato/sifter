@@ -3,9 +3,8 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import aiofiles
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -53,15 +52,26 @@ async def create_sift(
     db=Depends(get_db),
     usage: NoopLimiter = Depends(get_usage_limiter),
 ):
+    from ..services.document_service import DocumentService
+
     await usage.check_sift_create(principal.key_id)
     svc = SiftService(db)
+    doc_svc = DocumentService(db)
     await svc.ensure_indexes()
+    await doc_svc.ensure_indexes()
+
     sift = await svc.create(
         name=body.name,
         description=body.description,
         instructions=body.instructions,
         schema=body.schema,
     )
+
+    # Create default folder, link it, and store its ID on the sift
+    folder = await doc_svc.create_folder(body.name, "")
+    await doc_svc.link_extractor(folder.id, sift.id)
+    sift = await svc.update(sift.id, {"default_folder_id": folder.id})
+
     return _sift_to_dict(sift)
 
 
@@ -128,20 +138,32 @@ async def delete_sift(
 async def upload_documents(
     request: Request,
     sift_id: str,
-    background_tasks: BackgroundTasks,
     principal: Principal = Depends(get_current_principal),
     db=Depends(get_db),
     usage: NoopLimiter = Depends(get_usage_limiter),
     files: list[UploadFile] = File(...),
 ):
+    from ..services.document_service import DocumentService
+    from ..services.document_processor import enqueue
+
     svc = SiftService(db)
+    doc_svc = DocumentService(db)
+
     sift = await svc.get(sift_id)
     if not sift:
         raise HTTPException(status_code=404, detail="Sift not found")
 
+    # Ensure a default folder exists (lazy creation for pre-existing sifts)
+    folder_id = sift.default_folder_id
+    if not folder_id:
+        folder = await doc_svc.create_folder(sift.name, "")
+        await doc_svc.link_extractor(folder.id, sift_id)
+        await svc.update(sift_id, {"default_folder_id": folder.id})
+        folder_id = folder.id
+
     max_bytes = config.max_file_size_mb * 1024 * 1024
     storage = get_storage_backend()
-    saved_paths = []
+    uploaded_files = []
 
     for file in files:
         content = await file.read()
@@ -151,12 +173,20 @@ async def upload_documents(
                 detail=f"File {file.filename} exceeds max size of {config.max_file_size_mb}MB",
             )
         await usage.check_upload(principal.key_id, len(content))
-        storage_path = await storage.save(sift_id, file.filename, content)
-        saved_paths.append(storage_path)
 
-    background_tasks.add_task(svc.process_documents, sift_id, saved_paths)
+        storage_path = await storage.save(folder_id, file.filename, content)
+        doc = await doc_svc.save_document(
+            filename=file.filename,
+            content_type=file.content_type or "application/octet-stream",
+            folder_id=folder_id,
+            size_bytes=len(content),
+            storage_path=storage_path,
+        )
+        await doc_svc.create_sift_status(doc.id, sift_id)
+        await enqueue(doc.id, sift_id, storage_path)
+        uploaded_files.append(file.filename)
 
-    return {"uploaded": len(saved_paths), "files": [f.filename for f in files]}
+    return {"uploaded": len(uploaded_files), "files": uploaded_files, "folder_id": folder_id}
 
 
 @router.post("/{sift_id}/reindex")
@@ -341,6 +371,7 @@ def _sift_to_dict(s: Sift) -> dict:
         "error": s.error,
         "processed_documents": s.processed_documents,
         "total_documents": s.total_documents,
+        "default_folder_id": s.default_folder_id,
         "created_at": s.created_at.isoformat(),
         "updated_at": s.updated_at.isoformat(),
     }

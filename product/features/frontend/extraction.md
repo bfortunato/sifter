@@ -1,6 +1,8 @@
 ---
 title: "Frontend: Document Extraction (Sifts)"
 status: synced
+version: "1.1"
+last-modified: "2026-04-16T00:00:00.000Z"
 ---
 
 # Document Extraction — Frontend
@@ -21,6 +23,7 @@ Header bar:
 - Status badge
 - Instructions text (collapsed/expanded toggle)
 - Schema display (auto-inferred)
+- **Folder:** name of the sift's default folder, shown as a clickable link that navigates to `/folders?folder={default_folder_id}`; hidden if `default_folder_id` is null
 - Progress bar (`processed_documents / total_documents`) while indexing
 - Action buttons: Reindex, Reset (error state), Delete
 

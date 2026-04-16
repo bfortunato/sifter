@@ -370,6 +370,17 @@ export function SiftDetailPage() {
               <code className="text-xs bg-muted px-1 py-0.5 rounded">{extraction.schema}</code>
             </div>
           )}
+          {extraction.default_folder_id && (
+            <div>
+              <span className="font-medium text-muted-foreground">Folder: </span>
+              <button
+                className="text-primary hover:underline text-sm"
+                onClick={() => navigate(`/folders?folder=${extraction.default_folder_id}`)}
+              >
+                {extraction.name}
+              </button>
+            </div>
+          )}
           {extraction.error && (
             <Alert variant="destructive">
               <AlertDescription>{extraction.error}</AlertDescription>

@@ -54,6 +54,7 @@ export interface Sift {
   error: string | null;
   processed_documents: number;
   total_documents: number;
+  default_folder_id: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -22,6 +22,7 @@ class Sift(BaseModel):
     error: Optional[str] = None
     processed_documents: int = 0
     total_documents: int = 0
+    default_folder_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

@@ -273,7 +273,9 @@ export function SiftDetailPage() {
     refetchInterval: extraction && isIndexing(extraction.status) ? 2000 : false,
   });
 
-  const { data: records, isLoading: recordsLoading } = useSiftRecords(id!);
+  const { data: records, isLoading: recordsLoading } = useSiftRecords(id!, {
+    refetchInterval: extraction && isIndexing(extraction.status) ? 3000 : false,
+  });
   const uploadMutation = useUploadDocuments(id!);
   const reindexMutation = useReindexSift(id!);
   const deleteMutation = useDeleteSift();

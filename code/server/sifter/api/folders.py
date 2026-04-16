@@ -160,6 +160,12 @@ async def link_sift(
         await enqueue(doc_id, body.sift_id, storage_path)
         enqueued += 1
 
+    if enqueued > 0:
+        await db["sifts"].update_one(
+            {"_id": __import__("bson").ObjectId(body.sift_id)},
+            {"$inc": {"total_documents": enqueued}, "$set": {"status": "indexing"}},
+        )
+
     return {
         "id": link.id,
         "folder_id": link.folder_id,
@@ -235,6 +241,12 @@ async def link_extractor(
         await svc.create_sift_status(doc_id, sift_id)
         await enqueue(doc_id, sift_id, storage_path)
         enqueued += 1
+
+    if enqueued > 0:
+        await db["sifts"].update_one(
+            {"_id": __import__("bson").ObjectId(sift_id)},
+            {"$inc": {"total_documents": enqueued}, "$set": {"status": "indexing"}},
+        )
 
     return {
         "id": link.id,
@@ -319,6 +331,11 @@ async def upload_document(
         await svc.create_sift_status(doc.id, link.sift_id)
         await enqueue(doc.id, link.sift_id, doc.storage_path)
         enqueued.append(link.sift_id)
+        # Update sift counters so the UI can track progress
+        await db["sifts"].update_one(
+            {"_id": __import__("bson").ObjectId(link.sift_id)},
+            {"$inc": {"total_documents": 1}, "$set": {"status": "indexing"}},
+        )
 
     return {
         "id": doc.id,

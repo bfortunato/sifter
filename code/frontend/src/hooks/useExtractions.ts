@@ -23,7 +23,14 @@ import {
 import type { ChatMessage, CreateAggregationPayload, CreateSiftPayload } from "@/api/types";
 
 export const useSifts = () =>
-  useQuery({ queryKey: ["sifts"], queryFn: fetchSifts });
+  useQuery({
+    queryKey: ["sifts"],
+    queryFn: fetchSifts,
+    refetchInterval: (query: any) => {
+      const hasIndexing = (query.state.data as any)?.items?.some((s: any) => s.status === "indexing");
+      return hasIndexing ? 3000 : false;
+    },
+  });
 
 export const useSift = (id: string, options?: { refetchInterval?: number | false }) =>
   useQuery({
@@ -32,10 +39,11 @@ export const useSift = (id: string, options?: { refetchInterval?: number | false
     refetchInterval: options?.refetchInterval,
   });
 
-export const useSiftRecords = (id: string) =>
+export const useSiftRecords = (id: string, options?: { refetchInterval?: number | false }) =>
   useQuery({
     queryKey: ["sift-records", id],
     queryFn: () => fetchSiftRecords(id),
+    refetchInterval: options?.refetchInterval,
   });
 
 export const useCreateSift = () => {

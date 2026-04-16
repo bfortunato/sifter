@@ -206,15 +206,16 @@ class SiftService:
             schema = _infer_schema(result.extracted_data)
             await self.update(sift_id, {"schema": schema})
 
-        count = await self.results_service.count(sift_id)
-        await self.update(
-            sift_id,
-            {
-                "processed_documents": count,
-                "total_documents": count,
-                "status": SiftStatus.ACTIVE,
-            },
+        # Increment processed_documents atomically without overwriting total_documents
+        updated = await self.col.find_one_and_update(
+            {"_id": ObjectId(sift_id)},
+            {"$inc": {"processed_documents": 1}},
+            return_document=True,
         )
+        # Transition to ACTIVE only when all enqueued documents are done
+        if updated and updated.get("processed_documents", 0) >= updated.get("total_documents", 1):
+            await self.update(sift_id, {"status": SiftStatus.ACTIVE})
+
         return stored
 
     async def reindex(self, sift_id: str, file_paths: list[str]) -> None:

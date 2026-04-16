@@ -438,67 +438,88 @@ export function SiftDetailPage() {
   return (
     <div className="px-6 py-8 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+      <div className="flex items-start gap-3">
+        <Button variant="ghost" size="icon" className="h-8 w-8 mt-0.5 shrink-0" onClick={() => navigate("/")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold truncate">{extraction.name}</h1>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl font-semibold tracking-tight truncate">{extraction.name}</h1>
             <StatusBadge status={extraction.status} />
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleEditOpen} title="Edit">
-              <Pencil className="h-3.5 w-3.5" />
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={handleEditOpen} title="Edit">
+              <Pencil className="h-3 w-3" />
             </Button>
           </div>
           {extraction.description && (
-            <p className="text-muted-foreground text-sm mt-0.5">{extraction.description}</p>
+            <p className="text-muted-foreground text-sm mt-0.5 leading-relaxed">{extraction.description}</p>
           )}
         </div>
       </div>
 
       {/* Info card */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Sift Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div>
-            <span className="font-medium text-muted-foreground">Instructions: </span>
-            {extraction.instructions}
-          </div>
-          {extraction.schema && (
-            <div>
-              <span className="font-medium text-muted-foreground">Inferred Schema: </span>
-              <code className="text-xs bg-muted px-1 py-0.5 rounded">{extraction.schema}</code>
-            </div>
-          )}
-          {extraction.default_folder_id && (
-            <div>
-              <span className="font-medium text-muted-foreground">Folder: </span>
-              <button
-                className="text-primary hover:underline text-sm"
-                onClick={() => navigate(`/folders?folder=${extraction.default_folder_id}`)}
-              >
-                {extraction.name}
-              </button>
-            </div>
-          )}
-          <div>
-            <span className="font-medium text-muted-foreground">Mode: </span>
-            {extraction.multi_record ? "Multi-record (one document → many rows)" : "Single record per document"}
-          </div>
+        <CardContent className="pt-5 pb-5">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm items-start">
+            <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-0.5 whitespace-nowrap">
+              Instructions
+            </dt>
+            <dd className="text-foreground leading-relaxed">{extraction.instructions}</dd>
+
+            {extraction.schema && (
+              <>
+                <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-0.5 whitespace-nowrap">
+                  Schema
+                </dt>
+                <dd>
+                  <code className="text-[11px] font-mono bg-muted/80 border border-border/60 px-2 py-1 rounded-md leading-none inline-block text-foreground/80">
+                    {extraction.schema}
+                  </code>
+                </dd>
+              </>
+            )}
+
+            <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-0.5 whitespace-nowrap">
+              Mode
+            </dt>
+            <dd className="text-foreground/80">
+              {extraction.multi_record
+                ? "Multi-record — one document → multiple rows"
+                : "Single record per document"}
+            </dd>
+
+            {extraction.default_folder_id && (
+              <>
+                <dt className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-0.5 whitespace-nowrap">
+                  Folder
+                </dt>
+                <dd>
+                  <button
+                    className="text-primary hover:underline text-sm"
+                    onClick={() => navigate(`/folders?folder=${extraction.default_folder_id}`)}
+                  >
+                    {extraction.name}
+                  </button>
+                </dd>
+              </>
+            )}
+          </dl>
+
           {extraction.error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="mt-4">
               <AlertDescription>{extraction.error}</AlertDescription>
             </Alert>
           )}
+
           {isIndexing(extraction.status) && extraction.total_documents > 0 && (
-            <div className="space-y-1">
+            <div className="mt-4 space-y-1.5">
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Processing documents...</span>
-                <span>{extraction.processed_documents} / {extraction.total_documents}</span>
+                <span className="font-medium text-amber-600">Processing documents…</span>
+                <span className="font-mono tabular-nums">
+                  {extraction.processed_documents}
+                  <span className="text-muted-foreground/60">/{extraction.total_documents}</span>
+                </span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} className="h-1.5" />
             </div>
           )}
         </CardContent>

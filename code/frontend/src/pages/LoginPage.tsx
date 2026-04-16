@@ -4,6 +4,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuthContext } from "../context/AuthContext";
+import logo from "@/assets/logo.svg";
 
 export default function LoginPage() {
   const { login } = useAuthContext();
@@ -28,52 +29,88 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <div className="w-full max-w-sm space-y-6 p-8 border rounded-lg shadow-sm bg-card">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold">Sign in to Sifter</h1>
-          <p className="text-sm text-muted-foreground">Enter your credentials to continue</p>
+    <div className="min-h-screen bg-background flex">
+      {/* Left panel — brand */}
+      <div className="hidden lg:flex flex-col justify-between w-[420px] shrink-0 bg-[hsl(263,45%,14%)] text-white p-10">
+        <div className="flex items-center gap-2.5">
+          <img src={logo} alt="Sifter" className="h-7 w-7 brightness-0 invert" />
+          <span className="font-semibold text-lg tracking-tight">Sifter</span>
         </div>
+        <div className="space-y-3">
+          <p className="text-2xl font-semibold leading-snug text-white/90">
+            Turn unstructured documents into structured, queryable data.
+          </p>
+          <p className="text-sm text-white/50 leading-relaxed">
+            Upload PDFs and images — Sifter extracts the fields you care about using AI, stores them in a database, and lets you query the results instantly.
+          </p>
+        </div>
+        <p className="text-xs text-white/30">© {new Date().getFullYear()} Sifter</p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-sm space-y-7">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <img src={logo} alt="Sifter" className="h-6 w-6" />
+            <span className="font-semibold text-base text-primary">Sifter</span>
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold tracking-tight">Sign in</h1>
+            <p className="text-sm text-muted-foreground">Enter your credentials to continue</p>
+          </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
-          </Button>
-        </form>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Password
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                placeholder="••••••••"
+                className="h-9 text-sm"
+              />
+            </div>
 
-        <p className="text-sm text-center text-muted-foreground">
-          Don't have an account?{" "}
-          <Link to="/register" className="underline hover:text-foreground">
-            Register
-          </Link>
-        </p>
+            {error && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-destructive">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full h-9 text-sm" disabled={loading}>
+              {loading ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
+
+          <p className="text-sm text-center text-muted-foreground">
+            Don't have an account?{" "}
+            <Link to="/register" className="text-primary hover:underline font-medium">
+              Register
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

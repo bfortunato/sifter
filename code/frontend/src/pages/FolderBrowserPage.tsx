@@ -190,12 +190,12 @@ export default function FolderBrowserPage() {
   return (
     <div className="flex h-full">
       {/* Left panel */}
-      <div className="w-48 border-r flex flex-col p-3 gap-1 shrink-0">
+      <div className="w-48 border-r flex flex-col p-3 gap-0.5 shrink-0 bg-card">
         <button
-          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors w-full text-left ${
+          className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all w-full text-left border-l-2 ${
             isAllDocs
-              ? "bg-muted font-medium text-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              ? "bg-primary/10 font-medium text-foreground border-primary pl-[10px]"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border-transparent pl-[10px]"
           }`}
           onClick={() => navigate("/folders")}
         >
@@ -212,27 +212,27 @@ export default function FolderBrowserPage() {
           folders.map((f) => (
             <button
               key={f.id}
-              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors w-full text-left ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-all w-full text-left border-l-2 ${
                 folderId === f.id
-                  ? "bg-muted font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "bg-primary/10 font-medium text-foreground border-primary pl-[10px]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border-transparent pl-[10px]"
               }`}
               onClick={() => navigate(`/folders/${f.id}`)}
             >
               <Folder className="h-4 w-4 shrink-0" />
               <span className="truncate flex-1">{f.name}</span>
               {f.document_count > 0 && (
-                <span className="text-xs text-muted-foreground shrink-0">
-                  ({f.document_count})
+                <span className="font-mono text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                  {f.document_count}
                 </span>
               )}
             </button>
           ))
         )}
 
-        <div className="mt-auto pt-2">
+        <div className="mt-auto pt-2 border-t border-border/50">
           <button
-            className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors w-full text-left text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            className="flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors w-full text-left text-muted-foreground hover:text-foreground hover:bg-muted/60"
             onClick={() => setShowCreate(true)}
           >
             <Plus className="h-4 w-4 shrink-0" />
@@ -385,26 +385,20 @@ export default function FolderBrowserPage() {
                   .map((f) => (
                     <div
                       key={f.id}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors"
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-primary/[0.03] cursor-pointer transition-colors group"
                       onClick={() => navigate(`/folders/${f.id}`)}
                     >
-                      <input
-                        type="checkbox"
-                        className="shrink-0 rounded border-input"
-                        onClick={(e) => e.stopPropagation()}
-                        readOnly
-                      />
-                      <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Folder className="h-4 w-4 text-muted-foreground/60 shrink-0" />
                       <span className="font-medium text-sm flex-1">{f.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {f.document_count} document{f.document_count !== 1 ? "s" : ""}
+                      <span className="font-mono text-[11px] text-muted-foreground/60 tabular-nums">
+                        {f.document_count} doc{f.document_count !== 1 ? "s" : ""}
                       </span>
                       {f.created_at && (
-                        <span className="text-xs text-muted-foreground w-20 text-right">
+                        <span className="text-[11px] text-muted-foreground/60 w-20 text-right hidden sm:block">
                           {new Date(f.created_at).toLocaleDateString()}
                         </span>
                       )}
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0 group-hover:text-muted-foreground transition-colors" />
                     </div>
                   ))}
               </div>
@@ -547,56 +541,53 @@ interface DocumentRowProps {
 
 function DocumentRow({ doc, allSifts, onOpen, onChat }: DocumentRowProps) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-      <input
-        type="checkbox"
-        className="shrink-0 rounded border-input"
-        readOnly
-      />
-      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-primary/[0.03] transition-colors group">
+      <FileText className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
       <button
-        className="font-medium text-sm truncate text-left flex-1 hover:underline"
+        className="font-medium text-sm truncate text-left flex-1 hover:text-primary transition-colors"
         onClick={onOpen}
       >
         {doc.filename}
       </button>
-      <span className="text-xs text-muted-foreground shrink-0 w-16 text-right">
+      <span className="font-mono text-[11px] text-muted-foreground/70 shrink-0 tabular-nums w-14 text-right hidden sm:block">
         {formatBytes(doc.size_bytes)}
       </span>
-      <span className="text-xs text-muted-foreground shrink-0 w-20 text-right">
+      <span className="text-[11px] text-muted-foreground/70 shrink-0 w-20 text-right hidden md:block">
         {new Date(doc.uploaded_at).toLocaleDateString()}
       </span>
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1.5 shrink-0">
         {doc.sift_statuses?.map((s: DocumentSiftStatus) => {
           const ext = allSifts.find((e) => e.id === s.sift_id);
           return (
             <div key={s.sift_id} className="flex items-center gap-1">
-              <span className="text-xs text-muted-foreground hidden lg:inline">
-                {ext?.name?.substring(0, 10) ?? s.sift_id.substring(0, 6)}:
+              <span className="text-[10px] text-muted-foreground/50 hidden lg:inline font-medium">
+                {ext?.name?.substring(0, 10) ?? s.sift_id.substring(0, 6)}
               </span>
               <DocStatusBadge status={s.status} />
             </div>
           );
         })}
       </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-7 px-2 text-xs shrink-0"
-        onClick={(e) => { e.stopPropagation(); onChat(); }}
-      >
-        Chat
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onOpen}>Open</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+          onClick={(e) => { e.stopPropagation(); onChat(); }}
+        >
+          Chat
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onOpen}>Open</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }

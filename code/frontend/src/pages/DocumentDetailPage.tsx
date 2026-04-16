@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, Download, ExternalLink, Eye, EyeOff, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, ExternalLink, Eye, EyeOff, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).toString();
 import { deleteDocument, downloadDocument, fetchDocument, fetchDocumentBlob, fetchFolder, reprocessDocument } from "../api/folders";
 import { fetchSifts } from "../api/extractions";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -10,6 +18,59 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { DocumentSiftStatus } from "../api/types";
+
+function PdfViewer({ url }: { url: string }) {
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [width, setWidth] = useState<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="flex flex-col items-center">
+      <Document
+        file={url}
+        onLoadSuccess={({ numPages }) => { setNumPages(numPages); setPageNumber(1); }}
+        loading={<div className="flex items-center justify-center h-48"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}
+        error={<div className="p-4 text-sm text-muted-foreground">Failed to load PDF.</div>}
+      >
+        <Page
+          pageNumber={pageNumber}
+          width={width || undefined}
+          renderTextLayer
+          renderAnnotationLayer
+        />
+      </Document>
+      {numPages && numPages > 1 && (
+        <div className="flex items-center gap-3 py-2 text-sm text-muted-foreground border-t w-full justify-center bg-background">
+          <button
+            onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+            disabled={pageNumber <= 1}
+            className="p-1 rounded hover:bg-muted disabled:opacity-30"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span>Page {pageNumber} of {numPages}</span>
+          <button
+            onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+            disabled={pageNumber >= numPages}
+            className="p-1 rounded hover:bg-muted disabled:opacity-30"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -222,9 +283,7 @@ export default function DocumentDetailPage() {
       {showPreview && previewUrl && (
         <div className="rounded-lg border overflow-hidden bg-muted/20">
           {previewType === "application/pdf" ? (
-            <object data={previewUrl} type="application/pdf" className="w-full h-[600px]">
-              <p className="p-4 text-sm text-muted-foreground">PDF preview not available in this browser. <a href={previewUrl} download={doc.filename} className="underline">Download</a> to view.</p>
-            </object>
+            <PdfViewer url={previewUrl} />
           ) : (
             <img src={previewUrl} alt={doc.filename} className="max-w-full max-h-[600px] object-contain mx-auto block p-4" />
           )}

@@ -220,6 +220,15 @@ class SiftService:
             )
 
         if not result.matches_filter:
+            # Increment counter so the sift can still transition to ACTIVE
+            # when all documents (including discarded ones) have been processed
+            discard_updated = await self.col.find_one_and_update(
+                {"_id": ObjectId(sift_id)},
+                {"$inc": {"processed_documents": 1}},
+                return_document=True,
+            )
+            if discard_updated and discard_updated.get("processed_documents", 0) >= discard_updated.get("total_documents", 1):
+                await self.update(sift_id, {"status": SiftStatus.ACTIVE})
             raise DocumentDiscardedError(reason=result.filter_reason or "")
 
         filename = Path(file_path).name

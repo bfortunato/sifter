@@ -46,6 +46,12 @@
     font-family: var(--font-mono);
   }
 
+  /* Shimmer animation for indexing cards */
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
   /* Refined scrollbars */
   ::-webkit-scrollbar {
     width: 6px;

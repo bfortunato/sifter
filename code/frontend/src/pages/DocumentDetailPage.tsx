@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink, Loader2, RefreshCw, Trash2 } from "lucide-react";
-import { deleteDocument, fetchDocument, reprocessDocument } from "../api/folders";
+import { ArrowLeft, ChevronRight, Download, ExternalLink, Eye, EyeOff, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { deleteDocument, downloadDocument, fetchDocument, fetchDocumentBlob, fetchFolder, reprocessDocument } from "../api/folders";
 import { fetchSifts } from "../api/extractions";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -41,6 +42,11 @@ export default function DocumentDetailPage() {
   const { id: documentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<string>("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const blobUrlRef = useRef<string | null>(null);
 
   const { data: doc, isLoading, error } = useQuery({
     queryKey: ["document", documentId],
@@ -55,10 +61,45 @@ export default function DocumentDetailPage() {
     },
   });
 
+  const { data: folder } = useQuery({
+    queryKey: ["folder", doc?.folder_id],
+    queryFn: () => fetchFolder(doc!.folder_id),
+    enabled: !!doc?.folder_id,
+  });
+
   const { data: sifts = [] } = useQuery({
     queryKey: ["sifts"],
     queryFn: fetchSifts,
   });
+
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+    };
+  }, []);
+
+  const handleTogglePreview = async () => {
+    if (showPreview) {
+      setShowPreview(false);
+      return;
+    }
+    if (previewUrl) {
+      setShowPreview(true);
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const { url, contentType } = await fetchDocumentBlob(documentId!);
+      blobUrlRef.current = url;
+      setPreviewUrl(url);
+      setPreviewType(contentType);
+      setShowPreview(true);
+    } catch {
+      // preview not available
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const reprocessMutation = useMutation({
     mutationFn: (siftId?: string) => reprocessDocument(documentId!, siftId),
@@ -73,6 +114,10 @@ export default function DocumentDetailPage() {
   const handleDelete = () => {
     if (!confirm(`Delete "${doc?.filename}"? This cannot be undone.`)) return;
     deleteMutation.mutate();
+  };
+
+  const handleDownload = () => {
+    downloadDocument(documentId!, doc?.original_filename ?? doc?.filename ?? "document");
   };
 
   if (isLoading) {
@@ -100,26 +145,72 @@ export default function DocumentDetailPage() {
     );
   }
 
+  const canPreview = doc.content_type === "application/pdf" || doc.content_type?.startsWith("image/");
+
   return (
     <div className="px-6 py-8 max-w-4xl mx-auto space-y-6">
-      {/* Back + header */}
+      {/* Breadcrumb + header */}
       <div>
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="flex items-center gap-1 mb-3 -ml-2">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
+          <button className="hover:text-foreground" onClick={() => navigate("/folders")}>Folders</button>
+          {folder && (
+            <>
+              <ChevronRight className="h-3.5 w-3.5" />
+              <button
+                className="hover:text-foreground"
+                onClick={() => navigate(`/folders?folder=${doc.folder_id}`)}
+              >
+                {folder.name}
+              </button>
+            </>
+          )}
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="text-foreground truncate max-w-xs">{doc.filename}</span>
+        </div>
+
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-2xl font-bold break-all">{doc.filename}</h1>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-            className="shrink-0 text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="outline" size="sm" onClick={handleDownload} className="flex items-center gap-1">
+              <Download className="h-4 w-4" />
+              Download
+            </Button>
+            {canPreview && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTogglePreview}
+                disabled={previewLoading}
+                className="flex items-center gap-1"
+              >
+                {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : showPreview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPreview ? "Hide" : "Preview"}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Inline preview */}
+      {showPreview && previewUrl && (
+        <div className="rounded-lg border overflow-hidden bg-muted/20">
+          {previewType === "application/pdf" ? (
+            <iframe src={previewUrl} className="w-full h-[600px]" title={doc.filename} />
+          ) : (
+            <img src={previewUrl} alt={doc.filename} className="max-w-full max-h-[600px] object-contain mx-auto block p-4" />
+          )}
+        </div>
+      )}
 
       {/* Metadata */}
       <Card>
@@ -134,6 +225,19 @@ export default function DocumentDetailPage() {
             <dd>{formatBytes(doc.size_bytes)}</dd>
             <dt className="text-muted-foreground">Uploaded</dt>
             <dd>{new Date(doc.uploaded_at).toLocaleString()}</dd>
+            {folder && (
+              <>
+                <dt className="text-muted-foreground">Folder</dt>
+                <dd>
+                  <button
+                    className="text-primary hover:underline"
+                    onClick={() => navigate(`/folders?folder=${doc.folder_id}`)}
+                  >
+                    {folder.name}
+                  </button>
+                </dd>
+              </>
+            )}
           </dl>
         </CardContent>
       </Card>

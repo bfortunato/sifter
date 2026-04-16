@@ -121,6 +121,7 @@ Event types: `sift.document.processed`, `sift.document.discarded`, `sift.complet
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/documents/{document_id}` | Document detail + per-sift statuses |
+| GET | `/api/documents/{document_id}/download` | Download the original file bytes |
 | DELETE | `/api/documents/{document_id}` | Delete document + all extraction results |
 | POST | `/api/documents/{document_id}/reprocess` | Re-trigger extraction; optional `{ "sift_id": str }` in body |
 

@@ -118,3 +118,22 @@ export async function reprocessDocument(
     body: JSON.stringify({ sift_id: siftId }),
   });
 }
+
+export async function downloadDocument(documentId: string, filename: string): Promise<void> {
+  const res = await apiFetch(`/api/documents/${documentId}/download`);
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function fetchDocumentBlob(documentId: string): Promise<{ url: string; contentType: string }> {
+  const res = await apiFetch(`/api/documents/${documentId}/download`);
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  const blob = await res.blob();
+  return { url: URL.createObjectURL(blob), contentType: blob.type };
+}

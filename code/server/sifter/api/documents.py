@@ -2,6 +2,7 @@ from typing import Optional
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from ..auth import Principal, get_current_principal
@@ -45,11 +46,35 @@ async def get_document(
                 "started_at": s.started_at.isoformat() if s.started_at else None,
                 "completed_at": s.completed_at.isoformat() if s.completed_at else None,
                 "error_message": s.error_message,
+                "filter_reason": s.filter_reason,
                 "sift_record_id": s.sift_record_id,
             }
             for s in statuses
         ],
     }
+
+
+@router.get("/{document_id}/download")
+async def download_document(
+    document_id: str,
+    _: Principal = Depends(get_current_principal),
+    db=Depends(get_db),
+):
+    from ..storage import get_storage_backend
+    svc = DocumentService(db)
+    doc = await svc.get_document(document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    storage = get_storage_backend()
+    data = await storage.load(doc.storage_path)
+
+    safe_filename = doc.original_filename.replace('"', '\\"')
+    return Response(
+        content=data,
+        media_type=doc.content_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
+    )
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)

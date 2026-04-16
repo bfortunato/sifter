@@ -141,6 +141,7 @@ export interface Folder {
   name: string;
   description: string;
   document_count: number;
+  parent_id: string | null;
   created_at: string;
 }
 

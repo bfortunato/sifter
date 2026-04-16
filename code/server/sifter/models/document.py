@@ -22,6 +22,7 @@ class Folder(BaseModel):
     name: str
     description: str = ""
     document_count: int = 0
+    parent_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
@@ -39,6 +40,8 @@ class Folder(BaseModel):
         doc = dict(doc)
         if "_id" in doc:
             doc["_id"] = str(doc["_id"])
+        known = set(cls.model_fields.keys()) | {"_id"}
+        doc = {k: v for k, v in doc.items() if k in known or k == "_id"}
         return cls(**doc)
 
 

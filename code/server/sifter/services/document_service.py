@@ -25,6 +25,7 @@ class DocumentService:
         self.db = db
 
     async def ensure_indexes(self):
+        await self.db["folders"].create_index("parent_id", name="parent_id_idx", sparse=True)
         await self.db["documents"].create_index([("folder_id", 1), ("filename", 1)], unique=True)
 
         # Drop stale indexes
@@ -59,22 +60,42 @@ class DocumentService:
 
     # ---- Folders ----
 
-    async def create_folder(self, name: str, description: str) -> Folder:
-        folder = Folder(name=name, description=description)
+    async def create_folder(self, name: str, description: str, parent_id: Optional[str] = None) -> Folder:
+        folder = Folder(name=name, description=description, parent_id=parent_id)
         result = await self.db["folders"].insert_one(folder.to_mongo())
         folder.id = str(result.inserted_id)
         return folder
 
     async def list_folders(
-        self, skip: int = 0, limit: int = 50
+        self, skip: int = 0, limit: int = 200, parent_id: Optional[str] = "ALL"
     ) -> tuple[list[Folder], int]:
-        total = await self.db["folders"].count_documents({})
-        docs = await self.db["folders"].find({}).skip(skip).limit(limit).to_list(length=limit)
+        """List folders. parent_id='ALL' returns all (default), None returns roots,
+        a string ID returns direct children of that folder."""
+        query: dict = {}
+        if parent_id != "ALL":
+            query["parent_id"] = parent_id  # None → {parent_id: null} which matches missing/null
+        total = await self.db["folders"].count_documents(query)
+        docs = await self.db["folders"].find(query).skip(skip).limit(limit).to_list(length=limit)
         return [Folder.from_mongo(d) for d in docs], total
 
     async def get_folder(self, folder_id: str) -> Optional[Folder]:
         doc = await self.db["folders"].find_one({"_id": ObjectId(folder_id)})
         return Folder.from_mongo(doc) if doc else None
+
+    async def get_folder_path(self, folder_id: str) -> list[Folder]:
+        """Return ancestor chain from root down to (not including) folder_id. Max depth 10."""
+        path: list[Folder] = []
+        current_id = folder_id
+        for _ in range(10):
+            folder = await self.get_folder(current_id)
+            if not folder or not folder.parent_id:
+                break
+            parent = await self.get_folder(folder.parent_id)
+            if not parent:
+                break
+            path.insert(0, parent)
+            current_id = folder.parent_id
+        return path
 
     async def update_folder(self, folder_id: str, updates: dict) -> Optional[Folder]:
         result = await self.db["folders"].find_one_and_update(
@@ -85,11 +106,17 @@ class DocumentService:
         return Folder.from_mongo(result) if result else None
 
     async def delete_folder(self, folder_id: str) -> bool:
+        # Recursively delete children first
+        children = await self.db["folders"].find({"parent_id": folder_id}).to_list(length=None)
+        for child in children:
+            await self.delete_folder(str(child["_id"]))
+        # Delete documents in this folder
         docs = await self.db["documents"].find({"folder_id": folder_id}).to_list(length=None)
         for doc in docs:
             doc_id = str(doc["_id"])
             await self._delete_document_files(doc)
             await self.db["document_sift_statuses"].delete_many({"document_id": doc_id})
+            await self.db["processing_queue"].delete_many({"document_id": doc_id})
         await self.db["documents"].delete_many({"folder_id": folder_id})
         await self.db["folder_extractors"].delete_many({"folder_id": folder_id})
         result = await self.db["folders"].delete_one({"_id": ObjectId(folder_id)})

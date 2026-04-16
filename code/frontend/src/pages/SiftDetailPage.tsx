@@ -629,22 +629,22 @@ export function SiftDetailPage() {
       </Dialog>
 
       {/* Tabs */}
-      <Tabs defaultValue="documents">
+      <Tabs defaultValue="records">
         <TabsList>
+          <TabsTrigger value="records">
+            Records {records && records.length > 0 && `(${records.length})`}
+          </TabsTrigger>
           <TabsTrigger value="documents">
             Documents {extraction.total_documents > 0 && `(${extraction.total_documents})`}
-          </TabsTrigger>
-          <TabsTrigger value="records">
-            Records {records && `(${records.length})`}
           </TabsTrigger>
           <TabsTrigger value="query">Query</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
         </TabsList>
-        <TabsContent value="documents" className="mt-4">
-          <DocumentsPanel siftId={id!} isIndexing={isIndexing(extraction.status)} />
-        </TabsContent>
         <TabsContent value="records" className="mt-4">
           <RecordsTable records={records ?? []} isLoading={recordsLoading} />
+        </TabsContent>
+        <TabsContent value="documents" className="mt-4">
+          <DocumentsPanel siftId={id!} isIndexing={isIndexing(extraction.status)} />
         </TabsContent>
         <TabsContent value="query" className="mt-4 space-y-8">
           <AggregationsPanel siftId={id!} />

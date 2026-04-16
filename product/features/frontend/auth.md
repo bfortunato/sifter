@@ -10,7 +10,7 @@ status: synced
 ### Login (`/login`)
 
 - Email + password form
-- "Remember me" checkbox (optional)
+- "Sign in with Google" button (shown only when `googleAuthEnabled: true` from `/api/config`)
 - Link to Register
 - On success: stores JWT in `localStorage`, navigates to `/`
 - On failure: inline error message
@@ -18,6 +18,7 @@ status: synced
 ### Register (`/register`)
 
 - Full name, email, password form
+- "Sign up with Google" button (same gate as login)
 - Auto-login on success (same flow as Login)
 - Link to Login
 
@@ -35,8 +36,13 @@ status: synced
 - Stores: `token`, `user`, `isAuthenticated`
 - `login(email, password)` — calls `POST /api/auth/login`, stores token
 - `register(email, password, fullName)` — calls `POST /api/auth/register`, stores token
+- `loginWithGoogle(credential)` — calls `POST /api/auth/google`, stores token
 - `logout()` — clears token, navigates to `/login`
 - On app load: reads token from `localStorage`, calls `GET /api/auth/me` to validate + load user
+
+## Config (`ConfigContext`)
+
+`/api/config` response extended with `googleAuthEnabled: boolean`. Frontend gates Google buttons on this flag. `GoogleOAuthProvider` (from `@react-oauth/google`) wraps the app with `clientId` when enabled.
 
 ## 401 Handling
 

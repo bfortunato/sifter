@@ -6,7 +6,6 @@ The cloud layer replaces this with full org-aware auth via
 dependency_overrides or by mounting its own router.
 """
 from datetime import datetime, timezone
-from typing import Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -19,6 +18,7 @@ from sifter.auth import (
     hash_password,
     verify_password,
 )
+from sifter.config import config
 from sifter.db import get_db
 from sifter.limiter import limiter
 
@@ -43,6 +43,7 @@ class UserOut(BaseModel):
     email: str
     full_name: str
     created_at: str
+    auth_provider: str = "email"
 
 
 class AuthResponse(BaseModel):
@@ -57,6 +58,7 @@ def _user_out(doc: dict) -> UserOut:
         email=doc["email"],
         full_name=doc.get("full_name", ""),
         created_at=doc["created_at"].isoformat() if isinstance(doc["created_at"], datetime) else doc["created_at"],
+        auth_provider=doc.get("auth_provider", "email"),
     )
 
 
@@ -86,11 +88,72 @@ async def register(request: Request, req: RegisterRequest, db=Depends(get_db)):
 @limiter.limit("10/minute")
 async def login(request: Request, req: LoginRequest, db=Depends(get_db)):
     doc = await db["users"].find_one({"email": req.email.lower()})
-    if not doc or not verify_password(req.password, doc["hashed_password"]):
+    if doc and doc.get("auth_provider") == "google" and not doc.get("hashed_password"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This account uses Google sign-in. Please sign in with Google.",
+        )
+    if not doc or not verify_password(req.password, doc.get("hashed_password") or ""):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+    token = create_access_token(str(doc["_id"]))
+    return AuthResponse(access_token=token, user=_user_out(doc))
+
+
+class GoogleAuthRequest(BaseModel):
+    credential: str
+
+
+@router.post("/google", response_model=AuthResponse)
+@limiter.limit("10/minute")
+async def google_auth(request: Request, req: GoogleAuthRequest, db=Depends(get_db)):
+    if not config.google_client_id:
+        raise HTTPException(status_code=404, detail="Google authentication is not configured")
+
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
+        id_info = id_token.verify_oauth2_token(
+            req.credential,
+            google_requests.Request(),
+            config.google_client_id,
+        )
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Google credential")
+
+    if not id_info.get("email_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google account email is not verified",
+        )
+
+    google_id = id_info["sub"]
+    email = id_info["email"].lower()
+    full_name = id_info.get("name", "")
+    now = datetime.now(timezone.utc)
+
+    doc = await db["users"].find_one({"google_id": google_id})
+    if not doc:
+        doc = await db["users"].find_one({"email": email})
+        if doc:
+            await db["users"].update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"google_id": google_id, "auth_provider": "google"}},
+            )
+            doc = await db["users"].find_one({"_id": doc["_id"]})
+        else:
+            result = await db["users"].insert_one({
+                "email": email,
+                "full_name": full_name,
+                "hashed_password": None,
+                "google_id": google_id,
+                "auth_provider": "google",
+                "created_at": now,
+            })
+            doc = await db["users"].find_one({"_id": result.inserted_id})
+
     token = create_access_token(str(doc["_id"]))
     return AuthResponse(access_token=token, user=_user_out(doc))
 

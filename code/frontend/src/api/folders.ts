@@ -19,13 +19,18 @@ export async function fetchFolder(folderId: string): Promise<Folder & { extracto
 
 export async function createFolder(
   name: string,
-  description?: string
+  description?: string,
+  parentId?: string | null
 ): Promise<Folder> {
   return apiFetchJson<Folder>("/api/folders", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, description: description ?? "" }),
+    body: JSON.stringify({ name, description: description ?? "", parent_id: parentId ?? null }),
   });
+}
+
+export async function fetchFolderPath(folderId: string): Promise<Folder[]> {
+  return apiFetchJson<Folder[]>(`/api/folders/${folderId}/path`);
 }
 
 export async function updateFolder(

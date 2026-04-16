@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from sifter.config import config
 
 router = APIRouter(prefix="/api", tags=["config"])
 
@@ -10,4 +11,8 @@ async def get_config():
     Returns the deployment mode so the frontend can adapt its UI.
     sifter-cloud overrides this endpoint to return {"mode": "cloud"}.
     """
-    return {"mode": "oss"}
+    return {
+        "mode": "oss",
+        "googleAuthEnabled": bool(config.google_client_id),
+        "googleClientId": config.google_client_id if config.google_client_id else None,
+    }

@@ -32,6 +32,14 @@ export async function fetchMe(): Promise<User> {
   return apiFetchJson<User>("/api/auth/me");
 }
 
+export async function googleAuth(credential: string): Promise<AuthResponse> {
+  return apiFetchJson<AuthResponse>("/api/auth/google", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ credential }),
+  });
+}
+
 export async function switchOrg(org_id: string): Promise<AuthResponse> {
   return apiFetchJson<AuthResponse>("/api/auth/switch-org", {
     method: "POST",

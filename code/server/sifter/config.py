@@ -22,6 +22,9 @@ class SifterConfig(BaseSettings):
     api_key: str = "sk-dev"  # Set SIFTER_API_KEY in production
     require_api_key: bool = False  # If True, requests without X-API-Key get 401
 
+    # Google OAuth (optional — Google sign-in disabled when empty)
+    google_client_id: str = ""
+
     # JWT (for frontend / cloud layer)
     jwt_secret: str = "dev-secret-change-in-production"
     jwt_expire_minutes: int = 60 * 24  # 24h

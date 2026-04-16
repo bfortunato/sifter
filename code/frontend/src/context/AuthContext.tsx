@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchMe, login as apiLogin, register as apiRegister } from "../api/auth";
+import { fetchMe, googleAuth as apiGoogleAuth, login as apiLogin, register as apiRegister } from "../api/auth";
 import { User } from "../api/types";
 import { clearToken, getToken, setToken } from "../lib/apiFetch";
 
@@ -16,6 +16,7 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, fullName: string) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -72,6 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const loginWithGoogle = useCallback(async (credential: string) => {
+    const data = await apiGoogleAuth(credential);
+    setToken(data.access_token);
+    setUser(data.user);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -80,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         login,
         register,
+        loginWithGoogle,
         logout,
       }}
     >

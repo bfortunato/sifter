@@ -21,6 +21,7 @@ router = APIRouter(prefix="/api/folders", tags=["folders"])
 class CreateFolderRequest(BaseModel):
     name: str
     description: str = ""
+    parent_id: Optional[str] = None
 
 
 class UpdateFolderRequest(BaseModel):
@@ -38,19 +39,30 @@ def _folder_dict(f: Folder) -> dict:
         "name": f.name,
         "description": f.description,
         "document_count": f.document_count,
+        "parent_id": f.parent_id,
         "created_at": f.created_at.isoformat(),
     }
 
 
 @router.get("")
 async def list_folders(
-    limit: int = 50,
+    limit: int = 200,
     offset: int = 0,
+    parent_id: Optional[str] = None,
+    all: bool = True,
     _: Principal = Depends(get_current_principal),
     db=Depends(get_db),
 ):
+    """List folders. By default returns all folders (flat).
+    Pass ?all=false&parent_id=root for root-level folders.
+    Pass ?all=false&parent_id={id} for direct children."""
     svc = DocumentService(db)
-    folders, total = await svc.list_folders(skip=offset, limit=limit)
+    if all:
+        folders, total = await svc.list_folders(skip=offset, limit=limit, parent_id="ALL")
+    elif parent_id == "root":
+        folders, total = await svc.list_folders(skip=offset, limit=limit, parent_id=None)
+    else:
+        folders, total = await svc.list_folders(skip=offset, limit=limit, parent_id=parent_id)
     return {"items": [_folder_dict(f) for f in folders], "total": total, "limit": limit, "offset": offset}
 
 
@@ -62,7 +74,7 @@ async def create_folder(
 ):
     svc = DocumentService(db)
     await svc.ensure_indexes()
-    folder = await svc.create_folder(body.name, body.description)
+    folder = await svc.create_folder(body.name, body.description, parent_id=body.parent_id)
     return _folder_dict(folder)
 
 
@@ -84,6 +96,18 @@ async def get_folder(
             for e in extractors
         ],
     }
+
+
+@router.get("/{folder_id}/path")
+async def get_folder_path(
+    folder_id: str,
+    _: Principal = Depends(get_current_principal),
+    db=Depends(get_db),
+):
+    """Return ordered list of ancestor folders from root to this folder (for breadcrumbs)."""
+    svc = DocumentService(db)
+    ancestors = await svc.get_folder_path(folder_id)
+    return [_folder_dict(f) for f in ancestors]
 
 
 @router.patch("/{folder_id}")

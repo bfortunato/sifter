@@ -1,5 +1,7 @@
+import React from "react";
 import { BrowserRouter, Link, NavLink, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import {
   FileText,
   Folder,
@@ -19,7 +21,7 @@ import DocumentDetailPage from "@/pages/DocumentDetailPage";
 import LandingPage from "@/pages/LandingPage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthProvider, useAuthContext } from "@/context/AuthContext";
-import { ConfigProvider } from "@/context/ConfigContext";
+import { ConfigProvider, useConfig } from "@/context/ConfigContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -193,14 +195,24 @@ function AppRoutes() {
   );
 }
 
+function GoogleWrapper({ children }: { children: React.ReactNode }) {
+  const { googleAuthEnabled, googleClientId } = useConfig();
+  if (googleAuthEnabled && googleClientId) {
+    return <GoogleOAuthProvider clientId={googleClientId}>{children}</GoogleOAuthProvider>;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ConfigProvider>
-          <AuthProvider>
-            <AppRoutes />
-          </AuthProvider>
+          <GoogleWrapper>
+            <AuthProvider>
+              <AppRoutes />
+            </AuthProvider>
+          </GoogleWrapper>
         </ConfigProvider>
       </BrowserRouter>
     </QueryClientProvider>

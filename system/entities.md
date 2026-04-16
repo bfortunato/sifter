@@ -62,6 +62,7 @@ MongoDB collection: `sifts`
     "error": str | None,
     "processed_documents": int,
     "total_documents": int,
+    "default_folder_id": str | None,  # ID of auto-created folder; null for pre-existing sifts
     "created_at": datetime,
     "updated_at": datetime
 }
@@ -162,13 +163,18 @@ Compound index on `(document_id, sift_id)`.
     "_id": ObjectId,
     "document_id": str,
     "sift_id": str,
-    "status": "pending" | "processing" | "done" | "error",
+    "status": "pending" | "processing" | "done" | "error" | "discarded",
     "started_at": datetime | None,
     "completed_at": datetime | None,
     "error_message": str | None,
+    "filter_reason": str | None,   # LLM explanation when status == "discarded"
     "sift_record_id": str | None   # SiftResult._id when done
 }
 ```
+
+`discarded`: document did not match the extraction filter condition in the sift's instructions.
+`filter_reason` carries the LLM explanation (e.g. "Document is a service contract, not an invoice").
+No migration needed — MongoDB is schemaless; existing documents lack the field and it defaults to `None`.
 
 ## ProcessingTask
 

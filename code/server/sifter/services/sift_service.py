@@ -19,6 +19,12 @@ logger = structlog.get_logger()
 COLLECTION = "sifts"
 
 
+class DocumentDiscardedError(Exception):
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
 class SiftService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
@@ -111,6 +117,7 @@ class SiftService:
 
         schema = sift.schema
         errors = []
+        discarded = 0
 
         from ..storage import local_path as storage_local_path
 
@@ -122,6 +129,17 @@ class SiftService:
                         instructions=sift.instructions,
                         schema=schema,
                     )
+
+                if not result.matches_filter:
+                    discarded += 1
+                    logger.info(
+                        "document_discarded",
+                        sift_id=sift_id,
+                        document=Path(file_path).name,
+                        reason=result.filter_reason,
+                    )
+                    await self.update(sift_id, {"processed_documents": idx + 1 - len(errors)})
+                    continue
 
                 filename = Path(file_path).name
                 await self.results_service.insert_result(
@@ -138,7 +156,7 @@ class SiftService:
                     schema = _infer_schema(result.extracted_data)
                     await self.update(sift_id, {"schema": schema})
 
-                await self.update(sift_id, {"processed_documents": idx + 1})
+                await self.update(sift_id, {"processed_documents": idx + 1 - len(errors)})
                 logger.info(
                     "document_processed",
                     sift_id=sift_id,
@@ -156,7 +174,8 @@ class SiftService:
 
         final_status = SiftStatus.ACTIVE
         error_msg = None
-        if errors and len(errors) == total:
+        non_discarded = total - discarded
+        if errors and len(errors) == non_discarded:
             final_status = SiftStatus.ERROR
             error_msg = "; ".join(errors[:3])
         elif errors:
@@ -167,7 +186,7 @@ class SiftService:
             {
                 "status": final_status,
                 "error": error_msg,
-                "processed_documents": total - len(errors),
+                "processed_documents": total - len(errors) - discarded,
             },
         )
         logger.info(
@@ -175,6 +194,7 @@ class SiftService:
             sift_id=sift_id,
             total=total,
             errors=len(errors),
+            discarded=discarded,
         )
 
     async def process_single_document(
@@ -191,6 +211,9 @@ class SiftService:
                 instructions=sift.instructions,
                 schema=sift.schema,
             )
+
+        if not result.matches_filter:
+            raise DocumentDiscardedError(reason=result.filter_reason or "")
 
         filename = Path(file_path).name
         stored = await self.results_service.insert_result(

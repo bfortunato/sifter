@@ -39,6 +39,7 @@ import {
   useDeleteSift,
   useExportCsv,
   useSift,
+  useSiftDocuments,
   useSiftRecords,
   useReindexSift,
   useRegenerateAggregation,
@@ -46,7 +47,7 @@ import {
   useUpdateSift,
   useUploadDocuments,
 } from "@/hooks/useExtractions";
-import type { Aggregation, AggregationResult } from "@/api/types";
+import type { Aggregation, AggregationResult, SiftDocument } from "@/api/types";
 
 function AggregationStatusIcon({ status }: { status: string }) {
   if (status === "generating") return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
@@ -160,6 +161,89 @@ function AggregationCard({
         </p>
       )}
       {result && <AggregationResultTable result={result} />}
+    </div>
+  );
+}
+
+function docStatusVariant(status: string) {
+  switch (status) {
+    case "done": return "default";
+    case "processing": return "secondary";
+    case "error": return "destructive";
+    case "discarded": return "secondary";
+    default: return "outline";
+  }
+}
+
+function docStatusLabel(status: string) {
+  switch (status) {
+    case "done": return "Done";
+    case "processing": return "Processing";
+    case "pending": return "Pending";
+    case "error": return "Error";
+    case "discarded": return "Discarded";
+    default: return status;
+  }
+}
+
+function DocumentsPanel({ siftId, isIndexing }: { siftId: string; isIndexing: boolean }) {
+  const navigate = useNavigate();
+  const { data, isLoading } = useSiftDocuments(siftId, {
+    refetchInterval: isIndexing ? 3000 : false,
+  });
+
+  const docs = data?.items ?? [];
+
+  if (isLoading) {
+    return <div className="space-y-2"><div className="h-8 bg-muted animate-pulse rounded" /><div className="h-8 bg-muted animate-pulse rounded" /></div>;
+  }
+
+  if (!docs.length) {
+    return <p className="text-sm text-muted-foreground">No documents indexed yet.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-md border text-sm">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b bg-muted/50">
+            <th className="px-3 py-2 text-left font-medium text-muted-foreground">Filename</th>
+            <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
+            <th className="px-3 py-2 text-left font-medium text-muted-foreground">Completed</th>
+            <th className="px-3 py-2 text-left font-medium text-muted-foreground">Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {docs.map((doc: SiftDocument) => (
+            <tr key={doc.document_id} className="border-b last:border-0 hover:bg-muted/30">
+              <td className="px-3 py-2">
+                {doc.filename ? (
+                  <button
+                    className="text-primary hover:underline text-left"
+                    onClick={() => navigate(`/documents/${doc.document_id}`)}
+                  >
+                    {doc.filename}
+                  </button>
+                ) : (
+                  <span className="text-muted-foreground italic">(deleted)</span>
+                )}
+              </td>
+              <td className="px-3 py-2">
+                <Badge variant={docStatusVariant(doc.status) as any} className="text-xs">
+                  {doc.status === "processing" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                  {docStatusLabel(doc.status)}
+                </Badge>
+              </td>
+              <td className="px-3 py-2 text-muted-foreground text-xs">
+                {doc.completed_at ? new Date(doc.completed_at).toLocaleString() : "—"}
+              </td>
+              <td className="px-3 py-2 text-xs text-muted-foreground">
+                {doc.error_message ?? doc.filter_reason ?? "—"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -487,14 +571,20 @@ export function SiftDetailPage() {
       </Dialog>
 
       {/* Tabs */}
-      <Tabs defaultValue="records">
+      <Tabs defaultValue="documents">
         <TabsList>
+          <TabsTrigger value="documents">
+            Documents {extraction.total_documents > 0 && `(${extraction.total_documents})`}
+          </TabsTrigger>
           <TabsTrigger value="records">
             Records {records && `(${records.length})`}
           </TabsTrigger>
           <TabsTrigger value="query">Query</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
         </TabsList>
+        <TabsContent value="documents" className="mt-4">
+          <DocumentsPanel siftId={id!} isIndexing={isIndexing(extraction.status)} />
+        </TabsContent>
         <TabsContent value="records" className="mt-4">
           <RecordsTable records={records ?? []} isLoading={recordsLoading} />
         </TabsContent>

@@ -21,6 +21,7 @@ function statusVariant(status: string) {
     case "done": return "default";
     case "processing": return "secondary";
     case "error": return "destructive";
+    case "discarded": return "secondary";
     default: return "outline";
   }
 }
@@ -31,6 +32,7 @@ function statusLabel(status: string) {
     case "processing": return "Processing";
     case "pending": return "Pending";
     case "error": return "Error";
+    case "discarded": return "Discarded";
     default: return status;
   }
 }
@@ -194,6 +196,16 @@ export default function DocumentDetailPage() {
                   {s.status === "error" && s.error_message && (
                     <Alert variant="destructive" className="py-2">
                       <AlertDescription className="text-xs">{s.error_message}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {s.status === "discarded" && (
+                    <Alert className="py-2">
+                      <AlertDescription className="text-xs">
+                        {s.filter_reason
+                          ? `Discarded: ${s.filter_reason}`
+                          : "This document did not match the extraction filter."}
+                      </AlertDescription>
                     </Alert>
                   )}
 

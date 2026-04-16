@@ -20,6 +20,7 @@ import {
   fetchAggregations,
   regenerateAggregation,
 } from "@/api/aggregations";
+import { fetchSiftDocuments } from "@/api/extractions";
 import type { ChatMessage, CreateAggregationPayload, CreateSiftPayload } from "@/api/types";
 
 export const useSifts = () =>
@@ -44,6 +45,14 @@ export const useSiftRecords = (id: string, options?: { refetchInterval?: number 
     queryKey: ["sift-records", id],
     queryFn: () => fetchSiftRecords(id),
     refetchInterval: options?.refetchInterval,
+  });
+
+export const useSiftDocuments = (siftId: string, options?: { refetchInterval?: number | false }) =>
+  useQuery({
+    queryKey: ["sift-documents", siftId],
+    queryFn: () => fetchSiftDocuments(siftId),
+    refetchInterval: options?.refetchInterval,
+    enabled: !!siftId,
   });
 
 export const useCreateSift = () => {

@@ -1,8 +1,8 @@
 ---
 title: "Server: Document Extraction (Sifts)"
 status: synced
-version: "1.1"
-last-modified: "2026-04-16T00:00:00.000Z"
+version: "1.2"
+last-modified: "2026-04-16T12:00:00.000Z"
 ---
 
 # Document Extraction — Server
@@ -21,6 +21,7 @@ last-modified: "2026-04-16T00:00:00.000Z"
 | POST | `/api/sifts/{id}/reset` | Reset error state |
 | GET | `/api/sifts/{id}/records` | Get extracted records (`?limit=100&offset=0`) |
 | GET | `/api/sifts/{id}/records/csv` | Export records as CSV |
+| GET | `/api/sifts/{id}/documents` | List all documents processed by this sift with per-document status (`?limit=50&offset=0`) |
 
 Auth required on all endpoints: JWT Bearer or `X-API-Key` header.
 
@@ -69,6 +70,30 @@ Uploading directly to a sift routes files through the sift's **default folder**:
 Files uploaded this way are visible in the folder browser and benefit from the full folder pipeline: automatic retry (max 3), webhooks (`sift.document.processed`, `sift.error`), per-document status tracking, and concurrent worker processing.
 
 > **Legacy note:** files uploaded to a sift before this change were stored under `{sift_id}/` with no `Document` records. They remain in blob storage but are not visible in the UI and cannot be migrated.
+
+## Filter Discard
+
+When a sift's instructions include matching conditions (e.g. "extract data only from invoices"),
+documents that don't satisfy those conditions are **discarded** instead of stored as low-confidence results.
+
+- `sift_agent.extract()` returns `matches_filter: bool` and `filter_reason: str`
+- If `matches_filter` is `false`, the document is not stored in `sift_results`
+- `DocumentSiftStatus.status` is set to `"discarded"` with `filter_reason` populated
+- The processing queue task is marked `done` (not `error`) — the task completed successfully
+- Webhook `sift.document.discarded` is fired with `{ document_id, sift_id, reason }`
+- Users can reprocess a discarded document after updating the sift's instructions
+
+## Indexing Log (`GET /api/sifts/{id}/documents`)
+
+Returns all `DocumentSiftStatus` rows for the sift, joined with `Document` metadata.
+
+Response item fields: `document_id`, `filename`, `folder_id`, `size_bytes`, `uploaded_at`,
+`status` (`pending` | `processing` | `done` | `error` | `discarded`), `started_at`,
+`completed_at`, `error_message`, `filter_reason`, `sift_record_id`.
+
+Sorted by `uploaded_at` descending. Supports `?limit=50&offset=0` pagination.
+
+If the document was deleted after processing, `filename` is `null`.
 
 ## Key Behaviors
 

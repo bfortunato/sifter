@@ -179,6 +179,7 @@ class DocumentService:
                         "started_at": s["started_at"].isoformat() if s.get("started_at") else None,
                         "completed_at": s["completed_at"].isoformat() if s.get("completed_at") else None,
                         "error_message": s.get("error_message"),
+                        "filter_reason": s.get("filter_reason"),
                         "sift_record_id": s.get("sift_record_id") or s.get("extraction_record_id"),
                     }
                     for s in statuses
@@ -242,17 +243,20 @@ class DocumentService:
         status: DocumentSiftStatusEnum,
         error_message: Optional[str] = None,
         sift_record_id: Optional[str] = None,
+        filter_reason: Optional[str] = None,
     ) -> None:
         updates: dict = {"status": status}
         now = datetime.now(timezone.utc)
         if status == DocumentSiftStatusEnum.PROCESSING:
             updates["started_at"] = now
-        elif status in (DocumentSiftStatusEnum.DONE, DocumentSiftStatusEnum.ERROR):
+        elif status in (DocumentSiftStatusEnum.DONE, DocumentSiftStatusEnum.ERROR, DocumentSiftStatusEnum.DISCARDED):
             updates["completed_at"] = now
         if error_message is not None:
             updates["error_message"] = error_message
         if sift_record_id is not None:
             updates["sift_record_id"] = sift_record_id
+        if filter_reason is not None:
+            updates["filter_reason"] = filter_reason
         await self.db["document_sift_statuses"].update_one(
             {"document_id": document_id, "sift_id": sift_id},
             {"$set": updates},

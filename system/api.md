@@ -63,6 +63,7 @@ Create response: `{ "key": {...metadata}, "plaintext": "sk-..." }`
 | POST | `/api/sifts/{id}/reset` | Reset error state |
 | GET | `/api/sifts/{id}/records` | Get extracted records (`?limit=100&offset=0`) |
 | GET | `/api/sifts/{id}/records/csv` | Export records as CSV |
+| GET | `/api/sifts/{id}/documents` | List all documents processed by this sift with per-document status (`?limit=50&offset=0`) |
 | POST | `/api/sifts/{id}/query` | Live NL query (one-off, not saved) |
 | POST | `/api/sifts/{id}/chat` | Scoped Q&A chat (schema-aware) |
 
@@ -113,7 +114,7 @@ Register body: `{ "events": list[str], "url": str, "sift_id"?: str }`
 Events support wildcard patterns: `sift.*`, `**`, etc.
 Delivery: HTTP POST to `url` with body `{ "event": str, "payload": {...} }`
 
-Event types: `sift.document.processed`, `sift.completed`, `sift.error`, `folder.document.uploaded`
+Event types: `sift.document.processed`, `sift.document.discarded`, `sift.completed`, `sift.error`, `folder.document.uploaded`
 
 ## Documents
 

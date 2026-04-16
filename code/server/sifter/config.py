@@ -1,3 +1,5 @@
+import json
+import os
 from pydantic_settings import BaseSettings
 from pydantic import Field
 
@@ -55,4 +57,22 @@ class SifterConfig(BaseSettings):
     model_config = {"env_prefix": "SIFTER_"}
 
 
+def _normalise_cors_env() -> None:
+    """Ensure SIFTER_CORS_ORIGINS is a valid JSON array before pydantic-settings reads it.
+
+    pydantic-settings v2 decodes complex fields (list[str]) via json.loads in its own
+    source layer, before field validators run. A plain comma-separated string therefore
+    raises SettingsError. We normalise the env var to a JSON array here, at import time.
+    """
+    raw = os.environ.get("SIFTER_CORS_ORIGINS")
+    if raw is None:
+        return
+    try:
+        json.loads(raw)  # already valid JSON — nothing to do
+    except json.JSONDecodeError:
+        origins = [o.strip() for o in raw.split(",") if o.strip()]
+        os.environ["SIFTER_CORS_ORIGINS"] = json.dumps(origins)
+
+
+_normalise_cors_env()
 config = SifterConfig()

@@ -126,6 +126,24 @@ async def worker(db: AsyncIOMotorDatabase) -> None:
             )
 
         except Exception as e:
+            from .sift_service import DocumentDiscardedError
+            if isinstance(e, DocumentDiscardedError):
+                await doc_svc.update_sift_status(
+                    document_id, sift_id, DocumentSiftStatusEnum.DISCARDED, filter_reason=e.reason
+                )
+                await db[COLLECTION].update_one(
+                    {"_id": task_doc["_id"]},
+                    {"$set": {"status": "done", "completed_at": datetime.now(timezone.utc)}},
+                )
+                logger.info("document_discarded", document_id=document_id, sift_id=sift_id, reason=e.reason)
+                await _dispatch_webhook(
+                    db=db,
+                    event="sift.document.discarded",
+                    payload={"document_id": document_id, "sift_id": sift_id, "reason": e.reason},
+                    sift_id=sift_id,
+                )
+                continue
+
             error_msg = str(e)
             logger.error("document_processing_failed", document_id=document_id, sift_id=sift_id, error=error_msg, attempt=attempts)
 

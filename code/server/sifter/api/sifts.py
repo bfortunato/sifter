@@ -267,6 +267,50 @@ async def reset_sift(
     return _sift_to_dict(result)
 
 
+@router.get("/{sift_id}/documents")
+async def list_sift_documents(
+    sift_id: str,
+    limit: int = 50,
+    offset: int = 0,
+    _: Principal = Depends(get_current_principal),
+    db=Depends(get_db),
+):
+    svc = SiftService(db)
+    sift = await svc.get(sift_id)
+    if not sift:
+        raise HTTPException(status_code=404, detail="Sift not found")
+
+    total = await db["document_sift_statuses"].count_documents({"sift_id": sift_id})
+    statuses = await (
+        db["document_sift_statuses"]
+        .find({"sift_id": sift_id})
+        .sort("_id", -1)
+        .skip(offset)
+        .limit(limit)
+        .to_list(length=limit)
+    )
+
+    items = []
+    for s in statuses:
+        doc_id = s.get("document_id")
+        doc = await db["documents"].find_one({"_id": __import__("bson").ObjectId(doc_id)}) if doc_id else None
+        items.append({
+            "document_id": doc_id,
+            "filename": doc["filename"] if doc else None,
+            "folder_id": doc["folder_id"] if doc else None,
+            "size_bytes": doc.get("size_bytes", 0) if doc else 0,
+            "uploaded_at": doc["uploaded_at"].isoformat() if doc and doc.get("uploaded_at") else None,
+            "status": s.get("status"),
+            "started_at": s["started_at"].isoformat() if s.get("started_at") else None,
+            "completed_at": s["completed_at"].isoformat() if s.get("completed_at") else None,
+            "error_message": s.get("error_message"),
+            "filter_reason": s.get("filter_reason"),
+            "sift_record_id": s.get("sift_record_id") or s.get("extraction_record_id"),
+        })
+
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
+
+
 @router.get("/{sift_id}/records")
 async def get_records(
     sift_id: str,

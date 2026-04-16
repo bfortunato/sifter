@@ -4,6 +4,7 @@ import type {
   CreateSiftPayload,
   PaginatedResponse,
   Sift,
+  SiftDocument,
   SiftRecord,
   QueryResult,
 } from "./types";
@@ -47,6 +48,9 @@ export const resetSift = (id: string): Promise<Sift> =>
 
 export const fetchSiftRecords = (id: string): Promise<SiftRecord[]> =>
   apiFetchJson<PaginatedResponse<SiftRecord>>(`${BASE}/${id}/records?limit=1000`).then((r) => r.items);
+
+export const fetchSiftDocuments = (id: string): Promise<PaginatedResponse<SiftDocument>> =>
+  apiFetchJson<PaginatedResponse<SiftDocument>>(`${BASE}/${id}/documents?limit=200`);
 
 export const exportSiftCsv = async (id: string, name: string): Promise<void> => {
   const res = await apiFetch(`${BASE}/${id}/records/csv`);

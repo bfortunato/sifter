@@ -162,12 +162,27 @@ export interface Document {
 export interface DocumentSiftStatus {
   id?: string;
   sift_id: string;
-  status: "pending" | "processing" | "done" | "error";
+  status: "pending" | "processing" | "done" | "error" | "discarded";
   started_at: string | null;
   completed_at: string | null;
   error_message: string | null;
+  filter_reason?: string | null;
   sift_record_id: string | null;
 }
 
 // Legacy alias
 export type DocumentExtractionStatus = DocumentSiftStatus;
+
+export interface SiftDocument {
+  document_id: string;
+  filename: string | null;
+  folder_id: string | null;
+  size_bytes: number;
+  uploaded_at: string | null;
+  status: "pending" | "processing" | "done" | "error" | "discarded";
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+  filter_reason: string | null;
+  sift_record_id: string | null;
+}

@@ -10,6 +10,7 @@ class DocumentSiftStatusEnum(str, Enum):
     PROCESSING = "processing"
     DONE = "done"
     ERROR = "error"
+    DISCARDED = "discarded"
 
 
 # Legacy alias
@@ -107,6 +108,7 @@ class DocumentSiftStatus(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
+    filter_reason: Optional[str] = None
     sift_record_id: Optional[str] = None
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}

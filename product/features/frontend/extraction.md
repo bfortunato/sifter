@@ -1,8 +1,8 @@
 ---
 title: "Frontend: Document Extraction (Sifts)"
 status: synced
-version: "1.1"
-last-modified: "2026-04-16T00:00:00.000Z"
+version: "1.2"
+last-modified: "2026-04-16T12:00:00.000Z"
 ---
 
 # Document Extraction — Frontend
@@ -27,7 +27,16 @@ Header bar:
 - Progress bar (`processed_documents / total_documents`) while indexing
 - Action buttons: Reindex, Reset (error state), Delete
 
-Three tabs:
+Four tabs:
+
+#### Documents tab
+
+- Table of all documents associated with this sift, sorted by upload date descending
+- Columns: **Filename** (clickable link to `/documents/{document_id}`), **Status** (badge), **Completed** (timestamp or `—`), **Reason** (error or discard reason, shown in muted text)
+- Status badges: `pending`, `processing`, `done`, `error`, `discarded`
+- For `discarded` documents: `filter_reason` shown as reason text
+- Empty state when no documents indexed yet
+- Polls every 3 s while sift is indexing
 
 #### Records tab
 
@@ -48,3 +57,5 @@ See `frontend/chat.md` for the scoped chat interface.
 ## Polling
 
 While a sift has `status: indexing`, the page polls `GET /api/sifts/{id}` every 3 seconds to update the status badge and progress bar. Polling stops when status becomes `active` or `error`.
+
+The Documents tab and Records tab also poll at 3 s while indexing.

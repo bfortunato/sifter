@@ -83,7 +83,7 @@ export default function LandingPage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
                   <span className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
                 </div>
-                <pre className="text-zinc-400 overflow-x-auto leading-relaxed">
+                <pre className="text-zinc-200 overflow-x-auto leading-relaxed">
                   <code>
                     <span className="text-violet-400">from</span>{" sifter "}
                     <span className="text-violet-400">import</span>{" Sifter\n\n"}
@@ -95,7 +95,7 @@ export default function LandingPage() {
                     {", "}
                     <span className="text-amber-300">"client, date, total"</span>
                     {")\n"}
-                    <span className="text-zinc-600">{"# [{\"client\": \"Acme\", \"date\": \"2024-01\", ...}]"}</span>
+                    <span className="text-zinc-400">{"# [{\"client\": \"Acme\", \"date\": \"2024-01\", ...}]"}</span>
                   </code>
                 </pre>
               </div>
@@ -152,8 +152,8 @@ export default function LandingPage() {
               className="w-full block max-w-2xl mx-auto"
             />
             <div className="flex justify-between mt-4 max-w-2xl mx-auto px-2">
-              <p className="text-[11px] text-zinc-400 font-mono">RAG · similarity, uncertain</p>
-              <p className="text-[11px] text-zinc-400 font-mono">Sifter · structured, exact</p>
+              <p className="text-[11px] text-zinc-500 font-mono">RAG · similarity, uncertain</p>
+              <p className="text-[11px] text-zinc-500 font-mono">Sifter · structured, exact</p>
             </div>
           </div>
 
@@ -388,8 +388,8 @@ export default function LandingPage() {
               </a>
             </div>
             <div className="bg-[#111113] rounded-2xl p-5 font-mono text-xs border border-white/5">
-              <p className="text-zinc-500 mb-3"># claude_desktop_config.json</p>
-              <pre className="text-zinc-400 leading-relaxed overflow-x-auto">
+              <p className="text-zinc-400 mb-3"># claude_desktop_config.json</p>
+              <pre className="text-zinc-200 leading-relaxed overflow-x-auto">
                 <code>
                   {"{\n"}
                   {'  '}

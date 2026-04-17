@@ -35,6 +35,32 @@ On-premises deployment, dedicated cloud, SSO, audit log, RBAC, BYOK LLM, and cus
 - **Web UI included**: Built-in React UI for managing sifts, folders, and results — no separate frontend deployment
 - **Open and self-hostable**: Inspect the code, bring your own LLM API key, run on any server with MongoDB
 
+## Pricing Model
+
+### Unit of billing: document credits
+One document credit = one document up to 10 pages. Documents over 10 pages consume additional credits (one per 10 additional pages). This keeps pricing simple and predictable for the typical use case (invoices, contracts, receipts — virtually all under 10 pages) while remaining fair for longer documents.
+
+### Cloud tiers
+
+| Plan | Price | Documents/month | Sifts | API | Team |
+|------|-------|----------------|-------|-----|------|
+| Free | $0 | 25 | 1 | ✗ | ✗ |
+| Starter | $19 | 300 | 5 | ✓ | ✗ |
+| Pro | $79 | 3,000 | Unlimited | ✓ | 3 |
+| Business | $249 | 20,000 | Unlimited | ✓ | 10 |
+| Enterprise | Contact | Unlimited | Unlimited | ✓ | Unlimited |
+
+Free tier has no API access and results expire after 7 days — it is an evaluation tier, not a production tier.
+
+### Self-hosting
+The OSS engine is free under Apache 2.0. Self-hosters pay only for their own LLM API key. No document limits, no usage fees.
+
+### Design principles
+- No per-page fees at the user level — per-document pricing is simpler and more predictable
+- Free tier is intentionally limited to drive conversion, not enable indefinite free production use
+- API access is gated from Free to ensure developers upgrade to a paid plan before building production integrations
+- Enterprise is not a product tier — it is a custom engagement for compliance, on-prem, and scale requirements
+
 ## Long-term Direction
 
 Sifter aims to be the standard backend for document intelligence workflows — usable standalone as a cloud SaaS, embeddable via API or SDK, and accessible to AI agents via MCP. The managed cloud offering (`sifter-cloud`) adds multi-tenant organization management, Stripe billing, and usage metering on top of the same open-source engine.

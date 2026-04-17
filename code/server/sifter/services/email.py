@@ -12,6 +12,7 @@ class EmailSender(Protocol):
     async def send_invite(self, to: str, org_name: str, invite_url: str) -> None: ...
     async def send_password_reset(self, to: str, reset_url: str) -> None: ...
     async def send_usage_alert(self, to: str, org_name: str, usage_pct: float) -> None: ...
+    async def send_enterprise_lead(self, to: str, lead: dict) -> None: ...
 
 
 class NoopEmailSender:
@@ -24,6 +25,9 @@ class NoopEmailSender:
         pass
 
     async def send_usage_alert(self, to: str, org_name: str, usage_pct: float) -> None:
+        pass
+
+    async def send_enterprise_lead(self, to: str, lead: dict) -> None:
         pass
 
 

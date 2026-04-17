@@ -44,7 +44,7 @@ export default function LoginPage() {
             Turn unstructured documents into structured, queryable data.
           </p>
           <p className="text-sm text-white/50 leading-relaxed">
-            Upload PDFs and images — Sifter extracts the fields you care about using AI, stores them in a database, and lets you query the results instantly.
+            Upload documents — Sifter extracts the fields you care about using AI, stores them in a database, and lets you query the results instantly.
           </p>
         </div>
         <p className="text-xs text-white/30">© {new Date().getFullYear()} Sifter</p>

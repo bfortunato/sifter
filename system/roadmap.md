@@ -9,7 +9,7 @@ Priority order for getting Sifter to production. Grouped by phase.
 
 ---
 
-## Phase 1 — Production Baseline (CR-007)
+## Phase 1 — Production Baseline
 
 *Target: safe to deploy, data won't be lost*
 
@@ -34,38 +34,44 @@ Priority order for getting Sifter to production. Grouped by phase.
 
 ---
 
-## Phase 3 — Scalability
+## Phase 3 — Positioning, Docs & MCP (CR-018–021)
 
-*Target: handle 10k+ documents/month, multiple containers*
+*Target: coherent developer story before cloud GA*
 
-- [ ] **Distributed workers** — move worker polling to a separate process/container. Multiple worker instances can run in parallel against the same `processing_queue` collection.
-- [ ] **Indexes audit** — add missing compound indexes for common query patterns. Add `explain()` tests.
-- [ ] **API versioning** — add `/api/v1/` prefix. Legacy `/api/` remains for one release, then deprecated.
-- [ ] **Request body size limit** — explicit `Content-Length` limit per endpoint in FastAPI.
-- [ ] **Streaming upload** — support chunked upload for files > 50 MB.
+- [ ] **Product repositioning** (CR-018) — rewrite `product/vision.md` and `product/users.md` to 2-surface model (App + Developer) with Contact CTA for enterprise.
+- [ ] **Docs site → Mintlify** (CR-019) — migrate from VitePress to Mintlify. New sidebar: Overview / Concepts / Integrations / Self-hosting / Resources.
+- [ ] **Landing redesign + enterprise page** (CR-020) — update `LandingPage.tsx` to reflect 2 surfaces; add `/enterprise` page with feature list and contact form; add `POST /api/enterprise/contact` backend endpoint.
+- [ ] **MCP server v1** (CR-021) — new `sifter-mcp` Python package with read-only tools: `list_sifts`, `get_sift`, `list_records`, `query_sift`, `list_folders`, `get_folder`. Stdio transport. PyPI distribution via `uvx sifter-mcp`.
 
 ---
 
-## Phase 4 — Cloud (CR-008, sifter-cloud repo)
+## Phase 4 — Cloud GA (`sifter-cloud` repo)
 
-*Target: public SaaS launch*
+*Target: public SaaS launch with billing*
 
-- [ ] **`UsageLimiter` protocol** — add to OSS as no-op. Cloud implements `StripeLimiter`.
-- [ ] **`EmailSender` protocol** — add to OSS as no-op. Cloud implements `ResendEmailSender`.
-- [ ] **Stripe billing** — subscription tiers, metered usage, Stripe webhook handler.
-- [ ] **Email sending** — transactional email via Resend: invites, password reset, usage alerts.
+- [ ] **Stripe billing** — subscription tiers (Free / Starter / Pro / Enterprise), metered usage, Stripe webhook handler. `StripeLimiter` overrides `UsageLimiter`.
+- [ ] **Email sending** — transactional email via Resend: invites, password reset, usage alerts, enterprise lead notifications. `ResendEmailSender` overrides `EmailSender`.
 - [ ] **Org invitations** — `POST /api/invites` sends email. Token-based accept flow.
 - [ ] **Password reset** — `POST /api/auth/forgot-password` + `POST /api/auth/reset-password`.
 - [ ] **Admin dashboard** — internal view of all orgs, usage, subscriptions.
-- [ ] **SSO / OAuth** — Google/GitHub login via `authlib` or Stytch.
+- [ ] **Google / GitHub OAuth** — social login via `authlib` or Stytch.
+- [ ] **Usage dashboard** — per-org quota display in the App UI.
 
 ---
 
-## Phase 5 — Enterprise
+## Phase 5 — Scalability & Enterprise
 
+*Target: 10k+ documents/month, enterprise compliance*
+
+- [ ] **Distributed workers** — separate worker process/container polling the same `processing_queue`. Multiple instances in parallel.
+- [ ] **Indexes audit** — compound indexes for common query patterns. `explain()` tests.
+- [ ] **API versioning** — `/api/v1/` prefix. Legacy `/api/` deprecated after one release.
+- [ ] **Streaming upload** — chunked upload for files > 50 MB.
 - [ ] **SAML / SCIM** — enterprise SSO and user provisioning.
 - [ ] **Audit log** — append-only log of all resource mutations (who, what, when).
 - [ ] **GDPR tooling** — data export per user, right-to-erasure endpoint.
-- [ ] **Data retention policies** — per-org configurable retention periods with auto-archival.
-- [ ] **Custom LLM endpoints** — allow orgs to bring their own LLM endpoint (Azure OpenAI with their key).
+- [ ] **Data retention policies** — per-org configurable retention with auto-archival.
+- [ ] **Custom LLM endpoints** — BYOK Azure OpenAI or any OpenAI-compatible endpoint per org.
 - [ ] **Role-based access control** — resource-level permissions (folder-level read/write per user).
+- [ ] **Telegram bot** — forward documents to a Sifter folder from a Telegram chat; receive extraction-complete notifications.
+- [ ] **MCP v2** — write operations (`create_sift`, `upload_document`), SSE transport for web clients.

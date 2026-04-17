@@ -190,13 +190,14 @@ class SiftHandle:
                 except Exception:
                     pass
 
-    def records(self) -> list[dict[str, Any]]:
-        """Return all extracted records."""
+    def records(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+        """Return extracted records with optional pagination."""
         import httpx
         with httpx.Client() as http:
             r = http.get(
                 f"{self._client.api_url}/api/sifts/{self.id}/records",
                 headers=self._client._auth_headers(),
+                params={"limit": limit, "offset": offset},
             )
             r.raise_for_status()
             data = r.json()

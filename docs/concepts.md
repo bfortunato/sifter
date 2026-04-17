@@ -5,7 +5,7 @@
 A **Sift** is the core entity in Sifter. It defines:
 
 - A **name** and optional description
-- **Instructions** — plain English description of what to extract (e.g. `"Extract: client name, invoice date, total amount, VAT number"`)
+- **Instructions** — natural language description of what to extract (e.g. `"Extract: client name, invoice date, total amount, VAT number"`)
 - A **schema** — automatically inferred from the first processed document
 - A persistent **database of results** (one record per document)
 

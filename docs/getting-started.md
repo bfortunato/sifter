@@ -9,7 +9,7 @@
 ## Installation
 
 ```bash
-git clone https://github.com/sifter-ai/sifter.git
+git clone https://github.com/bfortunato/sifter.git
 cd sifter
 cp code/.env.example code/.env   # then edit with your API key
 ./code/run.sh

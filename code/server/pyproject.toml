@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "AI-powered document extraction engine — self-hostable server"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [{ name = "Sifter Contributors" }]
 keywords = ["document", "extraction", "ai", "mongodb", "llm", "ocr"]
 classifiers = [
@@ -54,8 +54,8 @@ dev = [
 sifter-server = "sifter.server:run"
 
 [project.urls]
-Homepage = "https://github.com/sifter-ai/sifter"
-Repository = "https://github.com/sifter-ai/sifter"
+Homepage = "https://github.com/bfortunato/sifter"
+Repository = "https://github.com/bfortunato/sifter"
 
 [tool.hatch.build.targets.wheel]
 packages = ["sifter"]
@@ -63,8 +63,12 @@ packages = ["sifter"]
 [tool.uv]
 package = true
 
+[project.optional-dependencies]
+mcp = ["sifter-mcp>=0.1.0"]
+
 [tool.uv.sources]
 sifter-ai = { path = "../sdk", editable = true }
+sifter-mcp = { path = "../mcp", editable = true }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

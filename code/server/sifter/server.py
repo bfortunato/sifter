@@ -11,7 +11,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from .api import aggregations, auth, chat, config as config_api, documents, sifts, folders, keys, webhooks
+from .api import aggregations, auth, chat, config as config_api, documents, enterprise, sifts, folders, keys, webhooks
 from .config import config
 from .db import close as close_db, get_db
 from .limiter import limiter
@@ -63,6 +63,14 @@ async def lifespan(app: FastAPI):
     # Start background document processing workers
     _worker_tasks = start_workers(config.max_workers, db)
 
+    # Mount MCP HTTP endpoint if sifter-mcp is installed
+    try:
+        from sifter_mcp.http_app import create_mcp_asgi_app
+        app.mount("/mcp", create_mcp_asgi_app())
+        logger.info("mcp_mounted", path="/mcp")
+    except ImportError:
+        pass
+
     # Mount frontend static files last, after all routers (including cloud overrides)
     # have been registered at import time. Mounting at module level would place the
     # catch-all StaticFiles before any routers added by cloud/main.py.
@@ -112,6 +120,7 @@ app.include_router(chat.router)
 app.include_router(folders.router)
 app.include_router(documents.router)
 app.include_router(webhooks.router)
+app.include_router(enterprise.router)
 
 
 @app.get("/health")

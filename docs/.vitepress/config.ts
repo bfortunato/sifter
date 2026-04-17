@@ -10,7 +10,7 @@ export default defineConfig({
       { text: 'Guide', link: '/getting-started' },
       { text: 'SDK', link: '/sdk' },
       { text: 'API', link: '/api' },
-      { text: 'GitHub', link: 'https://github.com/sifter-ai/sifter' }
+      { text: 'GitHub', link: 'https://github.com/bfortunato/sifter' }
     ],
     sidebar: [
       {
@@ -36,7 +36,7 @@ export default defineConfig({
       }
     ],
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/sifter-ai/sifter' }
+      { icon: 'github', link: 'https://github.com/bfortunato/sifter' }
     ],
     footer: {
       message: 'Released under the MIT License.',

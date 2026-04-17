@@ -506,7 +506,7 @@ export function SiftDetailPage() {
 
           {extraction.error && (
             <Alert variant="destructive" className="mt-4">
-              <AlertDescription>{extraction.error}</AlertDescription>
+              <AlertDescription className="break-all">{extraction.error}</AlertDescription>
             </Alert>
           )}
 

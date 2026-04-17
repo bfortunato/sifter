@@ -1,0 +1,42 @@
+---
+title: Pricing
+description: Sifter cloud plans and self-hosting options.
+---
+
+# Pricing
+
+## Cloud
+
+| Plan | Documents/month | Storage | Sifts | Price |
+|------|----------------|---------|-------|-------|
+| **Free** | 50 | 500 MB | 3 | $0 |
+| **Starter** | 500 | 5 GB | 10 | $29/mo |
+| **Pro** | 5,000 | 50 GB | Unlimited | $99/mo |
+| **Enterprise** | Unlimited | Unlimited | Unlimited | Custom |
+
+All plans include the web UI, REST API, Python SDK, MCP server, webhooks, and Google OAuth.
+
+[Get started for free →](https://sifter.ai/register)
+
+## Self-hosting
+
+The OSS engine is **free forever** under Apache 2.0. Run it on your own infrastructure:
+
+```bash
+git clone https://github.com/bfortunato/sifter
+cd sifter/code
+cp .env.example .env  # add SIFTER_LLM_API_KEY
+docker compose up -d
+```
+
+You bring your own LLM API key (OpenAI, Anthropic, Google, or Ollama). No per-document fees, no usage limits.
+
+See [Self-hosting](/self-hosting/docker-compose) for the full setup guide.
+
+## Enterprise
+
+Need SSO, on-premises deployment, RBAC, audit logging, BYOK LLM, or a custom SLA?
+
+<Card title="Contact us" icon="envelope" href="https://sifter.ai/enterprise">
+  Talk to us about enterprise deployments
+</Card>

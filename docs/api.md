@@ -59,7 +59,7 @@ Create a new sift.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | name | string | Yes | Sift name |
-| instructions | string | Yes | What to extract (plain English) |
+| instructions | string | Yes | What to extract (natural language) |
 | description | string | | Optional description |
 
 **Response:** Sift object

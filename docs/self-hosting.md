@@ -5,7 +5,7 @@ Sifter is designed to run anywhere: your laptop, a VPS, or a Kubernetes cluster.
 ## Quick Start
 
 ```bash
-git clone https://github.com/sifter-ai/sifter.git
+git clone https://github.com/bfortunato/sifter.git
 cd sifter
 cp code/.env.example code/.env
 # Edit code/.env and set SIFTER_LLM_API_KEY

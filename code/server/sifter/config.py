@@ -50,6 +50,9 @@ class SifterConfig(BaseSettings):
     # Background workers
     max_workers: int = 4
 
+    # Enterprise leads
+    sales_email: str = ""  # if set, enterprise contact form sends a notification email
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000

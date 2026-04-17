@@ -19,6 +19,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import FolderBrowserPage from "@/pages/FolderBrowserPage";
 import DocumentDetailPage from "@/pages/DocumentDetailPage";
 import LandingPage from "@/pages/LandingPage";
+import EnterprisePage from "@/pages/EnterprisePage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthProvider, useAuthContext } from "@/context/AuthContext";
 import { ConfigProvider, useConfig } from "@/context/ConfigContext";
@@ -180,6 +181,7 @@ function AppRoutes() {
     <div className="min-h-screen bg-background">
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/enterprise" element={<EnterprisePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route
